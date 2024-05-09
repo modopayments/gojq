@@ -617,10 +617,14 @@ func toNumber(v string) any {
 }
 
 func funcToString(v any) any {
-	if s, ok := v.(string); ok {
-		return s
+	switch v := v.(type) {
+	case string:
+		return v
+	case []byte:
+		return string(v)
+	default:
+		return funcToJSON(v)
 	}
-	return funcToJSON(v)
 }
 
 func funcType(v any) any {
