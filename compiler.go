@@ -1485,6 +1485,14 @@ func formatToFunc(format string) *Func {
 		return &Func{Name: "_tobase64"}
 	case "@base64d":
 		return &Func{Name: "_tobase64d"}
+	case "@base58":
+		return &Func{Name: "_tobase58"}
+	case "@base58d":
+		return &Func{Name: "_tobase58d"}
+	case "@base16":
+		return &Func{Name: "_tobase16"}
+	case "@base16d":
+		return &Func{Name: "_tobase16d"}
 	default:
 		return nil
 	}

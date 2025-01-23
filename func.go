@@ -2,6 +2,7 @@ package gojq
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/itchyny/gojq/base58"
 	"github.com/itchyny/timefmt-go"
 )
 
@@ -91,6 +93,10 @@ func init() {
 		"_tosh":          argFunc0(funcToSh),
 		"_tobase64":      argFunc0(funcToBase64),
 		"_tobase64d":     argFunc0(funcToBase64d),
+		"_tobase58":      argFunc0(funcToBase58),
+		"_tobase58d":     argFunc0(funcToBase58d),
+		"_tobase16":      argFunc0(funcToBase16),
+		"_tobase16d":     argFunc0(funcToBase16d),
 		"_index":         argFunc2(funcIndex2),
 		"_slice":         argFunc3(funcSlice),
 		"_plus":          argFunc0(funcOpPlus),
@@ -979,6 +985,50 @@ func funcToBase64d(v any) any {
 		y, err := base64.RawStdEncoding.DecodeString(x)
 		if err != nil {
 			return &func0WrapError{"@base64d", v, err}
+		}
+		return string(y)
+	default:
+		return x
+	}
+}
+
+func funcToBase58(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		return base58.Encode([]byte(x))
+	default:
+		return x
+	}
+}
+
+func funcToBase58d(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		y, err := base58.Decode(x)
+		if err != nil {
+			return &func0WrapError{"@base58d", v, err}
+		}
+		return string(y)
+	default:
+		return x
+	}
+}
+
+func funcToBase16(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		return hex.EncodeToString([]byte(x))
+	default:
+		return x
+	}
+}
+
+func funcToBase16d(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		y, err := hex.DecodeString(x)
+		if err != nil {
+			return &func0WrapError{"@base16d", v, err}
 		}
 		return string(y)
 	default:
