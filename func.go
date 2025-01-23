@@ -2,6 +2,7 @@ package gojq
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -18,6 +19,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/itchyny/gojq/base58"
 	"github.com/itchyny/timefmt-go"
 )
 
@@ -91,6 +93,10 @@ func init() {
 		"_tosh":          argFunc0(funcToSh),
 		"_tobase64":      argFunc0(funcToBase64),
 		"_tobase64d":     argFunc0(funcToBase64d),
+		"_tobase58":      argFunc0(funcToBase58),
+		"_tobase58d":     argFunc0(funcToBase58d),
+		"_tobase16":      argFunc0(funcToBase16),
+		"_tobase16d":     argFunc0(funcToBase16d),
 		"_index":         argFunc2(funcIndex2),
 		"_slice":         argFunc3(funcSlice),
 		"_plus":          argFunc0(funcOpPlus),
@@ -884,7 +890,7 @@ func funcToHTML(v any) any {
 func funcToURI(v any) any {
 	switch x := funcToString(v).(type) {
 	case string:
-		return url.QueryEscape(x)
+		return strings.ReplaceAll(url.QueryEscape(x), "+", "%20")
 	default:
 		return x
 	}
@@ -893,7 +899,7 @@ func funcToURI(v any) any {
 func funcToURId(v any) any {
 	switch x := funcToString(v).(type) {
 	case string:
-		x, err := url.QueryUnescape(x)
+		x, err := url.QueryUnescape(strings.ReplaceAll(x, "+", "%2B"))
 		if err != nil {
 			return &func0WrapError{"@urid", v, err}
 		}
@@ -979,6 +985,50 @@ func funcToBase64d(v any) any {
 		y, err := base64.RawStdEncoding.DecodeString(x)
 		if err != nil {
 			return &func0WrapError{"@base64d", v, err}
+		}
+		return string(y)
+	default:
+		return x
+	}
+}
+
+func funcToBase58(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		return base58.Encode([]byte(x))
+	default:
+		return x
+	}
+}
+
+func funcToBase58d(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		y, err := base58.Decode(x)
+		if err != nil {
+			return &func0WrapError{"@base58d", v, err}
+		}
+		return string(y)
+	default:
+		return x
+	}
+}
+
+func funcToBase16(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		return hex.EncodeToString([]byte(x))
+	default:
+		return x
+	}
+}
+
+func funcToBase16d(v any) any {
+	switch x := funcToString(v).(type) {
+	case string:
+		y, err := hex.DecodeString(x)
+		if err != nil {
+			return &func0WrapError{"@base16d", v, err}
 		}
 		return string(y)
 	default:
@@ -1504,10 +1554,7 @@ func (a allocator) makeObject(l int) map[string]any {
 }
 
 func (a allocator) makeArray(l, c int) []any {
-	if c < l {
-		c = l
-	}
-	v := make([]any, l, c)
+	v := make([]any, l, max(l, c))
 	if a != nil {
 		a[reflect.ValueOf(v).Pointer()] = struct{}{}
 	}
@@ -1939,41 +1986,30 @@ func funcStrptime(v, x any) any {
 
 func arrayToTime(a []any, loc *time.Location) (time.Time, error) {
 	var t time.Time
-	if len(a) != 8 {
-		return t, &timeArrayError{}
+	var year, month, day, hour, minute,
+		second, nanosecond, weekday, yearday int
+	for i, p := range []*int{
+		&year, &month, &day, &hour, &minute,
+		&second, &weekday, &yearday,
+	} {
+		if i >= len(a) {
+			break
+		}
+		if i == 5 {
+			if v, ok := toFloat(a[i]); ok {
+				*p = int(v)
+				nanosecond = int((v - math.Floor(v)) * 1e9)
+			} else {
+				return t, &timeArrayError{}
+			}
+		} else if v, ok := toInt(a[i]); ok {
+			*p = v
+		} else {
+			return t, &timeArrayError{}
+		}
 	}
-	var y, m, d, h, min, sec, nsec int
-	var ok bool
-	if y, ok = toInt(a[0]); !ok {
-		return t, &timeArrayError{}
-	}
-	if m, ok = toInt(a[1]); ok {
-		m++
-	} else {
-		return t, &timeArrayError{}
-	}
-	if d, ok = toInt(a[2]); !ok {
-		return t, &timeArrayError{}
-	}
-	if h, ok = toInt(a[3]); !ok {
-		return t, &timeArrayError{}
-	}
-	if min, ok = toInt(a[4]); !ok {
-		return t, &timeArrayError{}
-	}
-	if x, ok := toFloat(a[5]); ok {
-		sec = int(x)
-		nsec = int((x - math.Floor(x)) * 1e9)
-	} else {
-		return t, &timeArrayError{}
-	}
-	if _, ok = toFloat(a[6]); !ok {
-		return t, &timeArrayError{}
-	}
-	if _, ok = toFloat(a[7]); !ok {
-		return t, &timeArrayError{}
-	}
-	return time.Date(y, time.Month(m), d, h, min, sec, nsec, loc), nil
+	return time.Date(year, time.Month(month+1), day,
+		hour, minute, second, nanosecond, loc), nil
 }
 
 func funcNow(any) any {
