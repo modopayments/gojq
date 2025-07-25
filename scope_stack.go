@@ -6,6 +6,12 @@ type scopeStack struct {
 	limit int
 }
 
+func (s *scopeStack) reset() {
+	s.data = s.data[:0]
+	s.index = -1
+	s.limit = -1
+}
+
 type scopeBlock struct {
 	value scope
 	next  int

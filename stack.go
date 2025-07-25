@@ -6,6 +6,12 @@ type stack struct {
 	limit int
 }
 
+func (s *stack) reset() {
+	s.data = s.data[:0]
+	s.index = -1
+	s.limit = -1
+}
+
 type block struct {
 	value any
 	next  int
