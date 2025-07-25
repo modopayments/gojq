@@ -19,6 +19,9 @@ func (env *env) execute(bc *Code, v any, vars ...any) Iter {
 }
 
 func (env *env) Next() (any, bool) {
+	// in practice, we only call Next once, so we don't have to worry about multiple returns
+	defer envPool.Put(env)
+
 	var err error
 	pc, callpc, index := env.pc, len(env.codes)-1, -1
 	backtrack, hasCtx := env.backtrack, env.ctx != context.Background()
@@ -248,10 +251,8 @@ loop:
 			}
 			env.scopes.push(scope{xs[0], env.offset, callpc, saveindex, outerindex})
 			env.offset += xs[1]
-			if env.offset > len(env.values) {
-				vs := make([]any, env.offset*2)
-				copy(vs, env.values)
-				env.values = vs
+			for env.offset > len(env.values) {
+				env.values = append(env.values, nil)
 			}
 		case opret:
 			if backtrack {
