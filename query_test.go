@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/itchyny/gojq"
+	"github.com/modopayments/gojq"
 )
 
 func ExampleQuery_Run() {
@@ -356,12 +356,61 @@ func TestQueryString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Re-parse the formatted output and compare its string representation.
+	// reflect.DeepEqual is not used because Pos fields differ between the
+	// original source and the reformatted output (different byte offsets).
 	r, err := gojq.Parse(q.String())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(q, r) {
-		t.Errorf("\n%v\n%v", q, r)
+	if q.String() != r.String() {
+		t.Errorf("not idempotent:\nfirst:  %v\nsecond: %v", q, r)
+	}
+}
+
+func TestCommentRoundTrip(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		want string
+	}{
+		{
+			name: "leading comment",
+			src:  "# comment\n.foo",
+			want: "# comment\n.foo",
+		},
+		{
+			name: "trailing comment",
+			src:  ".foo\n# trailing",
+			want: ".foo\n# trailing\n",
+		},
+		{
+			name: "comment between pipe steps",
+			src:  ".foo\n# mid\n| .bar",
+			want: ".foo | # mid\n.bar",
+		},
+		{
+			name: "multiple leading comments",
+			src:  "# first\n# second\n.foo",
+			want: "# first\n# second\n.foo",
+		},
+		{
+			name: "comment before binary op rhs",
+			src:  ".a +\n# before b\n.b",
+			want: ".a + # before b\n.b",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			q, err := gojq.Parse(tt.src)
+			if err != nil {
+				t.Fatalf("Parse(%q): %v", tt.src, err)
+			}
+			got := q.String()
+			if got != tt.want {
+				t.Errorf("String():\ngot:  %q\nwant: %q", got, tt.want)
+			}
+		})
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/itchyny/go-yaml"
 
-	"github.com/itchyny/gojq"
+	"github.com/modopayments/gojq"
 )
 
 type inputReader struct {

@@ -27,6 +27,7 @@ type yySymType struct {
 	value    any
 	token    string
 	operator Operator
+	pos      int
 }
 
 const tokAltOp = 57346
@@ -147,7 +148,7 @@ const yyEofCode = 1
 const yyErrCode = 2
 const yyInitialStackSize = 16
 
-//line parser.go.y:669
+//line parser.go.y:734
 
 //line yacctab:1
 var yyExca = [...]int16{
@@ -754,750 +755,814 @@ yydefault:
 
 	case 1:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:58
+//line parser.go.y:59
 		{
 			query := yyDollar[3].value.(*Query)
 			query.Meta = yyDollar[1].value.(*ConstObject)
 			query.Imports = yyDollar[2].value.([]*Import)
-			yylex.(*lexer).result = query
+			l := yylex.(*lexer)
+			query.Comments = l.comments
+			l.result = query
 		}
 	case 2:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:67
+//line parser.go.y:70
 		{
 			yyVAL.value = (*ConstObject)(nil)
 		}
 	case 3:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:71
+//line parser.go.y:74
 		{
 			yyVAL.value = yyDollar[2].value
 		}
 	case 4:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:77
+//line parser.go.y:80
 		{
 			yyVAL.value = []*Import(nil)
 		}
 	case 5:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:81
+//line parser.go.y:84
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*Import), yyDollar[2].value.(*Import))
 		}
 	case 6:
 		yyDollar = yyS[yypt-6 : yypt+1]
-//line parser.go.y:87
+//line parser.go.y:90
 		{
 			yyVAL.value = &Import{ImportPath: yyDollar[2].token, ImportAlias: yyDollar[4].token, Meta: yyDollar[5].value.(*ConstObject)}
 		}
 	case 7:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:91
+//line parser.go.y:94
 		{
 			yyVAL.value = &Import{IncludePath: yyDollar[2].token, Meta: yyDollar[3].value.(*ConstObject)}
 		}
 	case 8:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:97
+//line parser.go.y:100
 		{
 			yyVAL.value = (*ConstObject)(nil)
 		}
 	case 10:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:104
+//line parser.go.y:107
 		{
-			yyVAL.value = &Query{FuncDefs: reverseFuncDef(yyDollar[1].value.([]*FuncDef))}
+			q := &Query{FuncDefs: reverseFuncDef(yyDollar[1].value.([]*FuncDef))}
+			yyVAL.value = q
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 12:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:111
+//line parser.go.y:116
 		{
 			yyVAL.value = []*FuncDef(nil)
 		}
 	case 13:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:115
+//line parser.go.y:120
 		{
 			yyVAL.value = append(yyDollar[2].value.([]*FuncDef), yyDollar[1].value.(*FuncDef))
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 14:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:121
+//line parser.go.y:127
 		{
 			yyVAL.value = &FuncDef{Name: yyDollar[2].token, Body: yyDollar[4].value.(*Query)}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 15:
 		yyDollar = yyS[yypt-8 : yypt+1]
-//line parser.go.y:125
+//line parser.go.y:132
 		{
 			yyVAL.value = &FuncDef{yyDollar[2].token, yyDollar[4].value.([]string), yyDollar[7].value.(*Query)}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 16:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:131
+//line parser.go.y:139
 		{
 			yyVAL.value = []string{yyDollar[1].token}
 		}
 	case 17:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:135
+//line parser.go.y:143
 		{
 			yyVAL.value = append(yyDollar[1].value.([]string), yyDollar[3].token)
 		}
 	case 20:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:145
+//line parser.go.y:153
 		{
 			query := yyDollar[2].value.(*Query)
 			query.FuncDefs = prependFuncDef(query.FuncDefs, yyDollar[1].value.(*FuncDef))
 			yyVAL.value = query
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 21:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:151
+//line parser.go.y:160
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpPipe, Right: yyDollar[3].value.(*Query)}
+			q := &Query{Left: yyDollar[1].value.(*Query), Op: OpPipe, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.value = q
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 22:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:155
+//line parser.go.y:166
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpPipe, Right: yyDollar[5].value.(*Query), Patterns: yyDollar[3].value.([]*Pattern)}
+			q := &Query{Left: yyDollar[1].value.(*Query), Op: OpPipe, Right: yyDollar[5].value.(*Query), Patterns: yyDollar[3].value.([]*Pattern), Pos: yyDollar[1].pos}
+			yyVAL.value = q
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 23:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:159
+//line parser.go.y:172
 		{
-			yyVAL.value = &Query{Term: &Term{Type: TermTypeLabel, Label: &Label{yyDollar[2].token, yyDollar[4].value.(*Query)}}}
+			q := &Query{Term: &Term{Type: TermTypeLabel, Label: &Label{yyDollar[2].token, yyDollar[4].value.(*Query)}, Pos: yyDollar[1].pos}, Pos: yyDollar[1].pos}
+			yyVAL.value = q
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 24:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:163
+//line parser.go.y:178
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpComma, Right: yyDollar[3].value.(*Query)}
+			q := &Query{Left: yyDollar[1].value.(*Query), Op: OpComma, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.value = q
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 26:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:170
+//line parser.go.y:187
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 27:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:174
+//line parser.go.y:192
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 28:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:178
+//line parser.go.y:197
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpOr, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpOr, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 29:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:182
+//line parser.go.y:202
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpAnd, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpAnd, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 30:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:186
+//line parser.go.y:207
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: yyDollar[2].operator, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 31:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:190
+//line parser.go.y:212
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpAdd, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpAdd, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 32:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:194
+//line parser.go.y:217
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpSub, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpSub, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 33:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:198
+//line parser.go.y:222
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpMul, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpMul, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 34:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:202
+//line parser.go.y:227
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpDiv, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpDiv, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 35:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:206
+//line parser.go.y:232
 		{
-			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpMod, Right: yyDollar[3].value.(*Query)}
+			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpMod, Right: yyDollar[3].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 36:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:210
+//line parser.go.y:237
 		{
-			yyVAL.value = &Query{Term: yyDollar[1].value.(*Term)}
+			t := yyDollar[1].value.(*Term)
+			yyVAL.value = &Query{Term: t, Pos: t.Pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 37:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:216
+//line parser.go.y:245
 		{
 			yyVAL.value = []*Pattern{yyDollar[1].value.(*Pattern)}
 		}
 	case 38:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:220
+//line parser.go.y:249
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*Pattern), yyDollar[3].value.(*Pattern))
 		}
 	case 39:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:226
+//line parser.go.y:255
 		{
 			yyVAL.value = &Pattern{Name: yyDollar[1].token}
 		}
 	case 40:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:230
+//line parser.go.y:259
 		{
 			yyVAL.value = &Pattern{Array: yyDollar[2].value.([]*Pattern)}
 		}
 	case 41:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:234
+//line parser.go.y:263
 		{
 			yyVAL.value = &Pattern{Object: yyDollar[2].value.([]*PatternObject)}
 		}
 	case 42:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:240
+//line parser.go.y:269
 		{
 			yyVAL.value = []*Pattern{yyDollar[1].value.(*Pattern)}
 		}
 	case 43:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:244
+//line parser.go.y:273
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*Pattern), yyDollar[3].value.(*Pattern))
 		}
 	case 44:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:250
+//line parser.go.y:279
 		{
 			yyVAL.value = []*PatternObject{yyDollar[1].value.(*PatternObject)}
 		}
 	case 45:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:254
+//line parser.go.y:283
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*PatternObject), yyDollar[3].value.(*PatternObject))
 		}
 	case 46:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:260
+//line parser.go.y:289
 		{
 			yyVAL.value = &PatternObject{Key: yyDollar[1].token, Val: yyDollar[3].value.(*Pattern)}
 		}
 	case 47:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:264
+//line parser.go.y:293
 		{
 			yyVAL.value = &PatternObject{KeyString: yyDollar[1].value.(*String), Val: yyDollar[3].value.(*Pattern)}
 		}
 	case 48:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:268
+//line parser.go.y:297
 		{
 			yyVAL.value = &PatternObject{KeyQuery: yyDollar[2].value.(*Query), Val: yyDollar[5].value.(*Pattern)}
 		}
 	case 49:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:272
+//line parser.go.y:301
 		{
 			yyVAL.value = &PatternObject{Key: yyDollar[1].token}
 		}
 	case 50:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:278
+//line parser.go.y:307
 		{
-			yyVAL.value = &Term{Type: TermTypeIdentity}
+			yyVAL.value = &Term{Type: TermTypeIdentity, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 51:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:282
+//line parser.go.y:312
 		{
-			yyVAL.value = &Term{Type: TermTypeRecurse}
+			yyVAL.value = &Term{Type: TermTypeRecurse, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 52:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:286
+//line parser.go.y:317
 		{
-			yyVAL.value = &Term{Type: TermTypeIndex, Index: &Index{Name: yyDollar[1].token}}
+			yyVAL.value = &Term{Type: TermTypeIndex, Index: &Index{Name: yyDollar[1].token}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 53:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:290
+//line parser.go.y:322
 		{
 			suffix := yyDollar[2].value.(*Suffix)
+			var t *Term
 			if suffix.Iter {
-				yyVAL.value = &Term{Type: TermTypeIdentity, SuffixList: []*Suffix{suffix}}
+				t = &Term{Type: TermTypeIdentity, SuffixList: []*Suffix{suffix}, Pos: yyDollar[1].pos}
 			} else {
-				yyVAL.value = &Term{Type: TermTypeIndex, Index: suffix.Index}
+				t = &Term{Type: TermTypeIndex, Index: suffix.Index, Pos: yyDollar[1].pos}
 			}
+			yyVAL.value = t
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 54:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:299
+//line parser.go.y:334
 		{
-			yyVAL.value = &Term{Type: TermTypeIndex, Index: &Index{Str: yyDollar[2].value.(*String)}}
+			yyVAL.value = &Term{Type: TermTypeIndex, Index: &Index{Str: yyDollar[2].value.(*String)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 55:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:303
+//line parser.go.y:339
 		{
-			yyVAL.value = &Term{Type: TermTypeNull}
+			yyVAL.value = &Term{Type: TermTypeNull, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 56:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:307
+//line parser.go.y:344
 		{
-			yyVAL.value = &Term{Type: TermTypeTrue}
+			yyVAL.value = &Term{Type: TermTypeTrue, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 57:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:311
+//line parser.go.y:349
 		{
-			yyVAL.value = &Term{Type: TermTypeFalse}
+			yyVAL.value = &Term{Type: TermTypeFalse, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 58:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:315
+//line parser.go.y:354
 		{
-			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token}}
+			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 59:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:319
+//line parser.go.y:359
 		{
-			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token, Args: yyDollar[3].value.([]*Query)}}
+			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token, Args: yyDollar[3].value.([]*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 60:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:323
+//line parser.go.y:364
 		{
-			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token}}
+			yyVAL.value = &Term{Type: TermTypeFunc, Func: &Func{Name: yyDollar[1].token}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 61:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:327
+//line parser.go.y:369
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{}}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 62:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:331
+//line parser.go.y:374
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 63:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:335
+//line parser.go.y:379
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 64:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:339
+//line parser.go.y:384
 		{
-			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{}}
+			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 65:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:343
+//line parser.go.y:389
 		{
-			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{yyDollar[2].value.(*Query)}}
+			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{yyDollar[2].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 66:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:347
+//line parser.go.y:394
 		{
-			yyVAL.value = &Term{Type: TermTypeNumber, Number: yyDollar[1].token}
+			yyVAL.value = &Term{Type: TermTypeNumber, Number: yyDollar[1].token, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 67:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:351
+//line parser.go.y:399
 		{
-			yyVAL.value = &Term{Type: TermTypeUnary, Unary: &Unary{OpAdd, yyDollar[2].value.(*Term)}}
+			yyVAL.value = &Term{Type: TermTypeUnary, Unary: &Unary{OpAdd, yyDollar[2].value.(*Term)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 68:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:355
+//line parser.go.y:404
 		{
-			yyVAL.value = &Term{Type: TermTypeUnary, Unary: &Unary{OpSub, yyDollar[2].value.(*Term)}}
+			yyVAL.value = &Term{Type: TermTypeUnary, Unary: &Unary{OpSub, yyDollar[2].value.(*Term)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 69:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:359
+//line parser.go.y:409
 		{
-			yyVAL.value = &Term{Type: TermTypeFormat, Format: yyDollar[1].token}
+			yyVAL.value = &Term{Type: TermTypeFormat, Format: yyDollar[1].token, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 70:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:363
+//line parser.go.y:414
 		{
-			yyVAL.value = &Term{Type: TermTypeFormat, Format: yyDollar[1].token, Str: yyDollar[2].value.(*String)}
+			yyVAL.value = &Term{Type: TermTypeFormat, Format: yyDollar[1].token, Str: yyDollar[2].value.(*String), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 71:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:367
+//line parser.go.y:419
 		{
-			yyVAL.value = &Term{Type: TermTypeString, Str: yyDollar[1].value.(*String)}
+			yyVAL.value = &Term{Type: TermTypeString, Str: yyDollar[1].value.(*String), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 72:
 		yyDollar = yyS[yypt-7 : yypt+1]
-//line parser.go.y:371
+//line parser.go.y:424
 		{
-			yyVAL.value = &Term{Type: TermTypeIf, If: &If{yyDollar[2].value.(*Query), yyDollar[4].value.(*Query), yyDollar[5].value.([]*IfElif), yyDollar[6].value.(*Query)}}
+			yyVAL.value = &Term{Type: TermTypeIf, If: &If{yyDollar[2].value.(*Query), yyDollar[4].value.(*Query), yyDollar[5].value.([]*IfElif), yyDollar[6].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 73:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:375
+//line parser.go.y:429
 		{
-			yyVAL.value = &Term{Type: TermTypeTry, Try: &Try{yyDollar[2].value.(*Query), yyDollar[3].value.(*Query)}}
+			yyVAL.value = &Term{Type: TermTypeTry, Try: &Try{yyDollar[2].value.(*Query), yyDollar[3].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 74:
 		yyDollar = yyS[yypt-9 : yypt+1]
-//line parser.go.y:379
+//line parser.go.y:434
 		{
-			yyVAL.value = &Term{Type: TermTypeReduce, Reduce: &Reduce{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query)}}
+			yyVAL.value = &Term{Type: TermTypeReduce, Reduce: &Reduce{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 75:
 		yyDollar = yyS[yypt-9 : yypt+1]
-//line parser.go.y:383
+//line parser.go.y:439
 		{
-			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), nil}}
+			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), nil}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 76:
 		yyDollar = yyS[yypt-11 : yypt+1]
-//line parser.go.y:387
+//line parser.go.y:444
 		{
-			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), yyDollar[10].value.(*Query)}}
+			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), yyDollar[10].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 77:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:391
+//line parser.go.y:449
 		{
-			yyVAL.value = &Term{Type: TermTypeBreak, Break: yyDollar[2].token}
+			yyVAL.value = &Term{Type: TermTypeBreak, Break: yyDollar[2].token, Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 78:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:395
+//line parser.go.y:454
 		{
-			yyVAL.value = &Term{Type: TermTypeQuery, Query: yyDollar[2].value.(*Query)}
+			yyVAL.value = &Term{Type: TermTypeQuery, Query: yyDollar[2].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 79:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:399
+//line parser.go.y:459
 		{
 			yyDollar[1].value.(*Term).SuffixList = append(yyDollar[1].value.(*Term).SuffixList, &Suffix{Index: &Index{Name: yyDollar[2].token}})
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 80:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:403
+//line parser.go.y:464
 		{
 			yyDollar[1].value.(*Term).SuffixList = append(yyDollar[1].value.(*Term).SuffixList, yyDollar[2].value.(*Suffix))
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 81:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:407
+//line parser.go.y:469
 		{
 			yyDollar[1].value.(*Term).SuffixList = append(yyDollar[1].value.(*Term).SuffixList, &Suffix{Optional: true})
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 82:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:411
+//line parser.go.y:474
 		{
 			yyDollar[1].value.(*Term).SuffixList = append(yyDollar[1].value.(*Term).SuffixList, yyDollar[3].value.(*Suffix))
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 83:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:415
+//line parser.go.y:479
 		{
 			yyDollar[1].value.(*Term).SuffixList = append(yyDollar[1].value.(*Term).SuffixList, &Suffix{Index: &Index{Str: yyDollar[3].value.(*String)}})
+			yyVAL.pos = yyDollar[1].pos
 		}
 	case 84:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:421
+//line parser.go.y:486
 		{
 			yyVAL.value = &String{Str: yyDollar[1].token}
 		}
 	case 85:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:425
+//line parser.go.y:490
 		{
 			yyVAL.value = &String{Queries: yyDollar[2].value.([]*Query)}
 		}
 	case 86:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:431
+//line parser.go.y:496
 		{
 			yyVAL.value = []*Query{}
 		}
 	case 87:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:435
+//line parser.go.y:500
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*Query), &Query{Term: &Term{Type: TermTypeString, Str: &String{Str: yyDollar[2].token}}})
 		}
 	case 88:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:439
+//line parser.go.y:504
 		{
 			yylex.(*lexer).inString = true
 			yyVAL.value = append(yyDollar[1].value.([]*Query), &Query{Term: &Term{Type: TermTypeQuery, Query: yyDollar[3].value.(*Query)}})
 		}
 	case 93:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:454
+//line parser.go.y:519
 		{
 			yyVAL.value = &Suffix{Iter: true}
 		}
 	case 94:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:458
+//line parser.go.y:523
 		{
 			yyVAL.value = &Suffix{Index: &Index{Start: yyDollar[2].value.(*Query)}}
 		}
 	case 95:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:462
+//line parser.go.y:527
 		{
 			yyVAL.value = &Suffix{Index: &Index{Start: yyDollar[2].value.(*Query), IsSlice: true}}
 		}
 	case 96:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:466
+//line parser.go.y:531
 		{
 			yyVAL.value = &Suffix{Index: &Index{End: yyDollar[3].value.(*Query), IsSlice: true}}
 		}
 	case 97:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:470
+//line parser.go.y:535
 		{
 			yyVAL.value = &Suffix{Index: &Index{Start: yyDollar[2].value.(*Query), End: yyDollar[4].value.(*Query), IsSlice: true}}
 		}
 	case 98:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:476
+//line parser.go.y:541
 		{
 			yyVAL.value = []*Query{yyDollar[1].value.(*Query)}
 		}
 	case 99:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:480
+//line parser.go.y:545
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*Query), yyDollar[3].value.(*Query))
 		}
 	case 100:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:486
+//line parser.go.y:551
 		{
 			yyVAL.value = []*IfElif(nil)
 		}
 	case 101:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:490
+//line parser.go.y:555
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*IfElif), &IfElif{yyDollar[3].value.(*Query), yyDollar[5].value.(*Query)})
 		}
 	case 102:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:496
+//line parser.go.y:561
 		{
 			yyVAL.value = (*Query)(nil)
 		}
 	case 103:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:500
+//line parser.go.y:565
 		{
 			yyVAL.value = yyDollar[2].value
 		}
 	case 104:
 		yyDollar = yyS[yypt-0 : yypt+1]
-//line parser.go.y:506
+//line parser.go.y:571
 		{
 			yyVAL.value = (*Query)(nil)
 		}
 	case 105:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:510
+//line parser.go.y:575
 		{
 			yyVAL.value = yyDollar[2].value
 		}
 	case 106:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:516
+//line parser.go.y:581
 		{
 			yyVAL.value = []*ObjectKeyVal{yyDollar[1].value.(*ObjectKeyVal)}
 		}
 	case 107:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:520
+//line parser.go.y:585
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*ObjectKeyVal), yyDollar[3].value.(*ObjectKeyVal))
 		}
 	case 108:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:526
+//line parser.go.y:591
 		{
 			yyVAL.value = &ObjectKeyVal{Key: yyDollar[1].token, Val: yyDollar[3].value.(*Query)}
 		}
 	case 109:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:530
+//line parser.go.y:595
 		{
 			yyVAL.value = &ObjectKeyVal{KeyString: yyDollar[1].value.(*String), Val: yyDollar[3].value.(*Query)}
 		}
 	case 110:
 		yyDollar = yyS[yypt-5 : yypt+1]
-//line parser.go.y:534
+//line parser.go.y:599
 		{
 			yyVAL.value = &ObjectKeyVal{KeyQuery: yyDollar[2].value.(*Query), Val: yyDollar[5].value.(*Query)}
 		}
 	case 111:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:538
+//line parser.go.y:603
 		{
 			yyVAL.value = &ObjectKeyVal{Key: yyDollar[1].token}
 		}
 	case 112:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:542
+//line parser.go.y:607
 		{
 			yyVAL.value = &ObjectKeyVal{KeyString: yyDollar[1].value.(*String)}
 		}
 	case 116:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:553
+//line parser.go.y:618
 		{
 			yyVAL.value = &Query{Left: yyDollar[1].value.(*Query), Op: OpPipe, Right: yyDollar[3].value.(*Query)}
 		}
 	case 118:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:560
+//line parser.go.y:625
 		{
 			yyVAL.value = &ConstTerm{Object: yyDollar[1].value.(*ConstObject)}
 		}
 	case 119:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:564
+//line parser.go.y:629
 		{
 			yyVAL.value = &ConstTerm{Array: yyDollar[1].value.(*ConstArray)}
 		}
 	case 120:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:568
+//line parser.go.y:633
 		{
 			yyVAL.value = &ConstTerm{Number: yyDollar[1].token}
 		}
 	case 121:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:572
+//line parser.go.y:637
 		{
 			yyVAL.value = &ConstTerm{Str: yyDollar[1].token}
 		}
 	case 122:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:576
+//line parser.go.y:641
 		{
 			yyVAL.value = &ConstTerm{Null: true}
 		}
 	case 123:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:580
+//line parser.go.y:645
 		{
 			yyVAL.value = &ConstTerm{True: true}
 		}
 	case 124:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:584
+//line parser.go.y:649
 		{
 			yyVAL.value = &ConstTerm{False: true}
 		}
 	case 125:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:590
+//line parser.go.y:655
 		{
 			yyVAL.value = &ConstObject{}
 		}
 	case 126:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:594
+//line parser.go.y:659
 		{
 			yyVAL.value = &ConstObject{yyDollar[2].value.([]*ConstObjectKeyVal)}
 		}
 	case 127:
 		yyDollar = yyS[yypt-4 : yypt+1]
-//line parser.go.y:598
+//line parser.go.y:663
 		{
 			yyVAL.value = &ConstObject{yyDollar[2].value.([]*ConstObjectKeyVal)}
 		}
 	case 128:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:604
+//line parser.go.y:669
 		{
 			yyVAL.value = []*ConstObjectKeyVal{yyDollar[1].value.(*ConstObjectKeyVal)}
 		}
 	case 129:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:608
+//line parser.go.y:673
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*ConstObjectKeyVal), yyDollar[3].value.(*ConstObjectKeyVal))
 		}
 	case 130:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:614
+//line parser.go.y:679
 		{
 			yyVAL.value = &ConstObjectKeyVal{Key: yyDollar[1].token, Val: yyDollar[3].value.(*ConstTerm)}
 		}
 	case 131:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:618
+//line parser.go.y:683
 		{
 			yyVAL.value = &ConstObjectKeyVal{Key: yyDollar[1].token, Val: yyDollar[3].value.(*ConstTerm)}
 		}
 	case 132:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:622
+//line parser.go.y:687
 		{
 			yyVAL.value = &ConstObjectKeyVal{KeyString: yyDollar[1].token, Val: yyDollar[3].value.(*ConstTerm)}
 		}
 	case 133:
 		yyDollar = yyS[yypt-2 : yypt+1]
-//line parser.go.y:628
+//line parser.go.y:693
 		{
 			yyVAL.value = &ConstArray{}
 		}
 	case 134:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:632
+//line parser.go.y:697
 		{
 			yyVAL.value = &ConstArray{yyDollar[2].value.([]*ConstTerm)}
 		}
 	case 135:
 		yyDollar = yyS[yypt-1 : yypt+1]
-//line parser.go.y:638
+//line parser.go.y:703
 		{
 			yyVAL.value = []*ConstTerm{yyDollar[1].value.(*ConstTerm)}
 		}
 	case 136:
 		yyDollar = yyS[yypt-3 : yypt+1]
-//line parser.go.y:642
+//line parser.go.y:707
 		{
 			yyVAL.value = append(yyDollar[1].value.([]*ConstTerm), yyDollar[3].value.(*ConstTerm))
 		}

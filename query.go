@@ -5,6 +5,60 @@ import (
 	"strings"
 )
 
+// Comment is a single-line jq comment (# to end of line).
+type Comment struct {
+	Text string // includes the leading #, no trailing newline
+	Pos  int    // byte offset of the # in the source
+	Col  int    // column of the # (bytes since the last newline)
+}
+
+// printer holds state for position-aware printing (gofmt pattern).
+// It walks the AST and flushes any comment whose Pos falls before the
+// current node's Pos before writing the node itself.
+type printer struct {
+	buf      strings.Builder
+	comments []Comment
+	ci       int // index of next comment to emit
+}
+
+func newPrinter(comments []Comment) *printer {
+	return &printer{comments: comments}
+}
+
+// writeComment emits a single comment. When the buffer is empty or ends with a
+// newline the comment is on its own line and its original column is preserved
+// (Col leading spaces). Otherwise the comment is inline and no spaces are
+// added — the caller has already written the preceding token.
+func (p *printer) writeComment(c Comment) {
+	if s := p.buf.String(); len(s) == 0 || s[len(s)-1] == '\n' {
+		if c.Col > 0 {
+			p.buf.WriteString(strings.Repeat(" ", c.Col))
+		}
+	}
+	p.buf.WriteString(c.Text)
+	p.buf.WriteByte('\n')
+}
+
+// flush emits all comments whose Pos is strictly less than beforePos.
+func (p *printer) flush(beforePos int) {
+	for p.ci < len(p.comments) && p.comments[p.ci].Pos < beforePos {
+		p.writeComment(p.comments[p.ci])
+		p.ci++
+	}
+}
+
+// flushAll emits all remaining comments. If the buffer doesn't end with a
+// newline a newline is inserted first so the comment lands on its own line.
+func (p *printer) flushAll() {
+	for p.ci < len(p.comments) {
+		if s := p.buf.String(); len(s) > 0 && s[len(s)-1] != '\n' {
+			p.buf.WriteByte('\n')
+		}
+		p.writeComment(p.comments[p.ci])
+		p.ci++
+	}
+}
+
 // Parse a query string, and returns the query struct.
 //
 // If parsing failed, it returns an error of type [*ParseError], which has
@@ -29,6 +83,8 @@ type Query struct {
 	Right    *Query
 	Patterns []*Pattern
 	Op       Operator
+	Pos      int       // byte offset of the first token of this query in the source
+	Comments []Comment // all comments in the program; populated only on the root Query
 }
 
 // Run the query.
@@ -48,43 +104,45 @@ func (e *Query) RunWithContext(ctx context.Context, v any) Iter {
 }
 
 func (e *Query) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(e.Comments)
+	e.writeTo(p)
+	p.flushAll()
+	return p.buf.String()
 }
 
-func (e *Query) writeTo(s *strings.Builder) {
+func (e *Query) writeTo(p *printer) {
+	p.flush(e.Pos)
 	if e.Meta != nil {
-		s.WriteString("module ")
-		e.Meta.writeTo(s)
-		s.WriteString(";\n")
+		p.buf.WriteString("module ")
+		e.Meta.writeTo(p)
+		p.buf.WriteString(";\n")
 	}
 	for _, im := range e.Imports {
-		im.writeTo(s)
+		im.writeTo(p)
 	}
 	for _, fd := range e.FuncDefs {
-		fd.writeTo(s)
-		s.WriteByte(' ')
+		fd.writeTo(p)
+		p.buf.WriteByte(' ')
 	}
 	if e.Term != nil {
-		e.Term.writeTo(s)
+		e.Term.writeTo(p)
 	} else if e.Right != nil {
-		e.Left.writeTo(s)
+		e.Left.writeTo(p)
 		if e.Op != OpComma {
-			s.WriteByte(' ')
+			p.buf.WriteByte(' ')
 		}
-		for i, p := range e.Patterns {
+		for i, pat := range e.Patterns {
 			if i == 0 {
-				s.WriteString("as ")
+				p.buf.WriteString("as ")
 			} else {
-				s.WriteString("?// ")
+				p.buf.WriteString("?// ")
 			}
-			p.writeTo(s)
-			s.WriteByte(' ')
+			pat.writeTo(p)
+			p.buf.WriteByte(' ')
 		}
-		s.WriteString(e.Op.String())
-		s.WriteByte(' ')
-		e.Right.writeTo(s)
+		p.buf.WriteString(e.Op.String())
+		p.buf.WriteByte(' ')
+		e.Right.writeTo(p)
 	}
 }
 
@@ -111,26 +169,26 @@ type Import struct {
 }
 
 func (e *Import) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Import) writeTo(s *strings.Builder) {
+func (e *Import) writeTo(p *printer) {
 	if e.ImportPath != "" {
-		s.WriteString("import ")
-		jsonEncodeString(s, e.ImportPath)
-		s.WriteString(" as ")
-		s.WriteString(e.ImportAlias)
+		p.buf.WriteString("import ")
+		jsonEncodeString(&p.buf, e.ImportPath)
+		p.buf.WriteString(" as ")
+		p.buf.WriteString(e.ImportAlias)
 	} else {
-		s.WriteString("include ")
-		jsonEncodeString(s, e.IncludePath)
+		p.buf.WriteString("include ")
+		jsonEncodeString(&p.buf, e.IncludePath)
 	}
 	if e.Meta != nil {
-		s.WriteByte(' ')
-		e.Meta.writeTo(s)
+		p.buf.WriteByte(' ')
+		e.Meta.writeTo(p)
 	}
-	s.WriteString(";\n")
+	p.buf.WriteString(";\n")
 }
 
 // FuncDef ...
@@ -141,27 +199,27 @@ type FuncDef struct {
 }
 
 func (e *FuncDef) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *FuncDef) writeTo(s *strings.Builder) {
-	s.WriteString("def ")
-	s.WriteString(e.Name)
+func (e *FuncDef) writeTo(p *printer) {
+	p.buf.WriteString("def ")
+	p.buf.WriteString(e.Name)
 	if len(e.Args) > 0 {
-		s.WriteByte('(')
+		p.buf.WriteByte('(')
 		for i, e := range e.Args {
 			if i > 0 {
-				s.WriteString("; ")
+				p.buf.WriteString("; ")
 			}
-			s.WriteString(e)
+			p.buf.WriteString(e)
 		}
-		s.WriteByte(')')
+		p.buf.WriteByte(')')
 	}
-	s.WriteString(": ")
-	e.Body.writeTo(s)
-	s.WriteByte(';')
+	p.buf.WriteString(": ")
+	e.Body.writeTo(p)
+	p.buf.WriteByte(';')
 }
 
 // Term ...
@@ -183,66 +241,67 @@ type Term struct {
 	Break      string
 	Query      *Query
 	SuffixList []*Suffix
+	Pos        int // byte offset of the first token of this term in the source
 }
 
 func (e *Term) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Term) writeTo(s *strings.Builder) {
+func (e *Term) writeTo(p *printer) {
 	switch e.Type {
 	case TermTypeIdentity:
-		s.WriteByte('.')
+		p.buf.WriteByte('.')
 	case TermTypeRecurse:
-		s.WriteString("..")
+		p.buf.WriteString("..")
 	case TermTypeNull:
-		s.WriteString("null")
+		p.buf.WriteString("null")
 	case TermTypeTrue:
-		s.WriteString("true")
+		p.buf.WriteString("true")
 	case TermTypeFalse:
-		s.WriteString("false")
+		p.buf.WriteString("false")
 	case TermTypeIndex:
-		e.Index.writeTo(s)
+		e.Index.writeTo(p)
 	case TermTypeFunc:
-		e.Func.writeTo(s)
+		e.Func.writeTo(p)
 	case TermTypeObject:
-		e.Object.writeTo(s)
+		e.Object.writeTo(p)
 	case TermTypeArray:
-		e.Array.writeTo(s)
+		e.Array.writeTo(p)
 	case TermTypeNumber:
-		s.WriteString(e.Number)
+		p.buf.WriteString(e.Number)
 	case TermTypeUnary:
-		e.Unary.writeTo(s)
+		e.Unary.writeTo(p)
 	case TermTypeFormat:
-		s.WriteString(e.Format)
+		p.buf.WriteString(e.Format)
 		if e.Str != nil {
-			s.WriteByte(' ')
-			e.Str.writeTo(s)
+			p.buf.WriteByte(' ')
+			e.Str.writeTo(p)
 		}
 	case TermTypeString:
-		e.Str.writeTo(s)
+		e.Str.writeTo(p)
 	case TermTypeIf:
-		e.If.writeTo(s)
+		e.If.writeTo(p)
 	case TermTypeTry:
-		e.Try.writeTo(s)
+		e.Try.writeTo(p)
 	case TermTypeReduce:
-		e.Reduce.writeTo(s)
+		e.Reduce.writeTo(p)
 	case TermTypeForeach:
-		e.Foreach.writeTo(s)
+		e.Foreach.writeTo(p)
 	case TermTypeLabel:
-		e.Label.writeTo(s)
+		e.Label.writeTo(p)
 	case TermTypeBreak:
-		s.WriteString("break ")
-		s.WriteString(e.Break)
+		p.buf.WriteString("break ")
+		p.buf.WriteString(e.Break)
 	case TermTypeQuery:
-		s.WriteByte('(')
-		e.Query.writeTo(s)
-		s.WriteByte(')')
+		p.buf.WriteByte('(')
+		e.Query.writeTo(p)
+		p.buf.WriteByte(')')
 	}
 	for _, e := range e.SuffixList {
-		e.writeTo(s)
+		e.writeTo(p)
 	}
 }
 
@@ -297,14 +356,14 @@ type Unary struct {
 }
 
 func (e *Unary) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Unary) writeTo(s *strings.Builder) {
-	s.WriteString(e.Op.String())
-	e.Term.writeTo(s)
+func (e *Unary) writeTo(p *printer) {
+	p.buf.WriteString(e.Op.String())
+	e.Term.writeTo(p)
 }
 
 func (e *Unary) toNumber() any {
@@ -323,32 +382,32 @@ type Pattern struct {
 }
 
 func (e *Pattern) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Pattern) writeTo(s *strings.Builder) {
+func (e *Pattern) writeTo(p *printer) {
 	if e.Name != "" {
-		s.WriteString(e.Name)
+		p.buf.WriteString(e.Name)
 	} else if len(e.Array) > 0 {
-		s.WriteByte('[')
+		p.buf.WriteByte('[')
 		for i, e := range e.Array {
 			if i > 0 {
-				s.WriteString(", ")
+				p.buf.WriteString(", ")
 			}
-			e.writeTo(s)
+			e.writeTo(p)
 		}
-		s.WriteByte(']')
+		p.buf.WriteByte(']')
 	} else if len(e.Object) > 0 {
-		s.WriteByte('{')
+		p.buf.WriteByte('{')
 		for i, e := range e.Object {
 			if i > 0 {
-				s.WriteString(", ")
+				p.buf.WriteString(", ")
 			}
-			e.writeTo(s)
+			e.writeTo(p)
 		}
-		s.WriteByte('}')
+		p.buf.WriteByte('}')
 	}
 }
 
@@ -361,24 +420,24 @@ type PatternObject struct {
 }
 
 func (e *PatternObject) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *PatternObject) writeTo(s *strings.Builder) {
+func (e *PatternObject) writeTo(p *printer) {
 	if e.Key != "" {
-		s.WriteString(e.Key)
+		p.buf.WriteString(e.Key)
 	} else if e.KeyString != nil {
-		e.KeyString.writeTo(s)
+		e.KeyString.writeTo(p)
 	} else if e.KeyQuery != nil {
-		s.WriteByte('(')
-		e.KeyQuery.writeTo(s)
-		s.WriteByte(')')
+		p.buf.WriteByte('(')
+		e.KeyQuery.writeTo(p)
+		p.buf.WriteByte(')')
 	}
 	if e.Val != nil {
-		s.WriteString(": ")
-		e.Val.writeTo(s)
+		p.buf.WriteString(": ")
+		e.Val.writeTo(p)
 	}
 }
 
@@ -392,41 +451,41 @@ type Index struct {
 }
 
 func (e *Index) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Index) writeTo(s *strings.Builder) {
-	if l := s.Len(); l > 0 {
+func (e *Index) writeTo(p *printer) {
+	if l := p.buf.Len(); l > 0 {
 		// ". .x" != "..x" and "0 .x" != "0.x"
-		if c := s.String()[l-1]; c == '.' || '0' <= c && c <= '9' {
-			s.WriteByte(' ')
+		if c := p.buf.String()[l-1]; c == '.' || '0' <= c && c <= '9' {
+			p.buf.WriteByte(' ')
 		}
 	}
-	s.WriteByte('.')
-	e.writeSuffixTo(s)
+	p.buf.WriteByte('.')
+	e.writeSuffixTo(p)
 }
 
-func (e *Index) writeSuffixTo(s *strings.Builder) {
+func (e *Index) writeSuffixTo(p *printer) {
 	if e.Name != "" {
-		s.WriteString(e.Name)
+		p.buf.WriteString(e.Name)
 	} else if e.Str != nil {
-		e.Str.writeTo(s)
+		e.Str.writeTo(p)
 	} else {
-		s.WriteByte('[')
+		p.buf.WriteByte('[')
 		if e.IsSlice {
 			if e.Start != nil {
-				e.Start.writeTo(s)
+				e.Start.writeTo(p)
 			}
-			s.WriteByte(':')
+			p.buf.WriteByte(':')
 			if e.End != nil {
-				e.End.writeTo(s)
+				e.End.writeTo(p)
 			}
 		} else {
-			e.Start.writeTo(s)
+			e.Start.writeTo(p)
 		}
-		s.WriteByte(']')
+		p.buf.WriteByte(']')
 	}
 }
 
@@ -471,22 +530,22 @@ type Func struct {
 }
 
 func (e *Func) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Func) writeTo(s *strings.Builder) {
-	s.WriteString(e.Name)
+func (e *Func) writeTo(p *printer) {
+	p.buf.WriteString(e.Name)
 	if len(e.Args) > 0 {
-		s.WriteByte('(')
+		p.buf.WriteByte('(')
 		for i, e := range e.Args {
 			if i > 0 {
-				s.WriteString("; ")
+				p.buf.WriteString("; ")
 			}
-			e.writeTo(s)
+			e.writeTo(p)
 		}
-		s.WriteByte(')')
+		p.buf.WriteByte(')')
 	}
 }
 
@@ -497,27 +556,27 @@ type String struct {
 }
 
 func (e *String) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *String) writeTo(s *strings.Builder) {
+func (e *String) writeTo(p *printer) {
 	if e.Queries == nil {
-		jsonEncodeString(s, e.Str)
+		jsonEncodeString(&p.buf, e.Str)
 		return
 	}
-	s.WriteByte('"')
+	p.buf.WriteByte('"')
 	for _, e := range e.Queries {
 		if e.Term.Str == nil {
-			s.WriteString(`\`)
-			e.writeTo(s)
+			p.buf.WriteString(`\`)
+			e.writeTo(p)
 		} else {
 			es := e.String()
-			s.WriteString(es[1 : len(es)-1])
+			p.buf.WriteString(es[1 : len(es)-1])
 		}
 	}
-	s.WriteByte('"')
+	p.buf.WriteByte('"')
 }
 
 // Object ...
@@ -526,24 +585,24 @@ type Object struct {
 }
 
 func (e *Object) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Object) writeTo(s *strings.Builder) {
+func (e *Object) writeTo(p *printer) {
 	if len(e.KeyVals) == 0 {
-		s.WriteString("{}")
+		p.buf.WriteString("{}")
 		return
 	}
-	s.WriteString("{ ")
+	p.buf.WriteString("{ ")
 	for i, kv := range e.KeyVals {
 		if i > 0 {
-			s.WriteString(", ")
+			p.buf.WriteString(", ")
 		}
-		kv.writeTo(s)
+		kv.writeTo(p)
 	}
-	s.WriteString(" }")
+	p.buf.WriteString(" }")
 }
 
 // ObjectKeyVal ...
@@ -555,24 +614,24 @@ type ObjectKeyVal struct {
 }
 
 func (e *ObjectKeyVal) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *ObjectKeyVal) writeTo(s *strings.Builder) {
+func (e *ObjectKeyVal) writeTo(p *printer) {
 	if e.Key != "" {
-		s.WriteString(e.Key)
+		p.buf.WriteString(e.Key)
 	} else if e.KeyString != nil {
-		e.KeyString.writeTo(s)
+		e.KeyString.writeTo(p)
 	} else if e.KeyQuery != nil {
-		s.WriteByte('(')
-		e.KeyQuery.writeTo(s)
-		s.WriteByte(')')
+		p.buf.WriteByte('(')
+		e.KeyQuery.writeTo(p)
+		p.buf.WriteByte(')')
 	}
 	if e.Val != nil {
-		s.WriteString(": ")
-		e.Val.writeTo(s)
+		p.buf.WriteString(": ")
+		e.Val.writeTo(p)
 	}
 }
 
@@ -582,17 +641,17 @@ type Array struct {
 }
 
 func (e *Array) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Array) writeTo(s *strings.Builder) {
-	s.WriteByte('[')
+func (e *Array) writeTo(p *printer) {
+	p.buf.WriteByte('[')
 	if e.Query != nil {
-		e.Query.writeTo(s)
+		e.Query.writeTo(p)
 	}
-	s.WriteByte(']')
+	p.buf.WriteByte(']')
 }
 
 // Suffix ...
@@ -603,22 +662,22 @@ type Suffix struct {
 }
 
 func (e *Suffix) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Suffix) writeTo(s *strings.Builder) {
+func (e *Suffix) writeTo(p *printer) {
 	if e.Index != nil {
 		if e.Index.Name != "" || e.Index.Str != nil {
-			e.Index.writeTo(s)
+			e.Index.writeTo(p)
 		} else {
-			e.Index.writeSuffixTo(s)
+			e.Index.writeSuffixTo(p)
 		}
 	} else if e.Iter {
-		s.WriteString("[]")
+		p.buf.WriteString("[]")
 	} else if e.Optional {
-		s.WriteByte('?')
+		p.buf.WriteByte('?')
 	}
 }
 
@@ -648,25 +707,25 @@ type If struct {
 }
 
 func (e *If) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *If) writeTo(s *strings.Builder) {
-	s.WriteString("if ")
-	e.Cond.writeTo(s)
-	s.WriteString(" then ")
-	e.Then.writeTo(s)
+func (e *If) writeTo(p *printer) {
+	p.buf.WriteString("if ")
+	e.Cond.writeTo(p)
+	p.buf.WriteString(" then ")
+	e.Then.writeTo(p)
 	for _, e := range e.Elif {
-		s.WriteByte(' ')
-		e.writeTo(s)
+		p.buf.WriteByte(' ')
+		e.writeTo(p)
 	}
 	if e.Else != nil {
-		s.WriteString(" else ")
-		e.Else.writeTo(s)
+		p.buf.WriteString(" else ")
+		e.Else.writeTo(p)
 	}
-	s.WriteString(" end")
+	p.buf.WriteString(" end")
 }
 
 // IfElif ...
@@ -676,16 +735,16 @@ type IfElif struct {
 }
 
 func (e *IfElif) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *IfElif) writeTo(s *strings.Builder) {
-	s.WriteString("elif ")
-	e.Cond.writeTo(s)
-	s.WriteString(" then ")
-	e.Then.writeTo(s)
+func (e *IfElif) writeTo(p *printer) {
+	p.buf.WriteString("elif ")
+	e.Cond.writeTo(p)
+	p.buf.WriteString(" then ")
+	e.Then.writeTo(p)
 }
 
 // Try ...
@@ -695,17 +754,17 @@ type Try struct {
 }
 
 func (e *Try) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Try) writeTo(s *strings.Builder) {
-	s.WriteString("try ")
-	e.Body.writeTo(s)
+func (e *Try) writeTo(p *printer) {
+	p.buf.WriteString("try ")
+	e.Body.writeTo(p)
 	if e.Catch != nil {
-		s.WriteString(" catch ")
-		e.Catch.writeTo(s)
+		p.buf.WriteString(" catch ")
+		e.Catch.writeTo(p)
 	}
 }
 
@@ -718,21 +777,21 @@ type Reduce struct {
 }
 
 func (e *Reduce) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Reduce) writeTo(s *strings.Builder) {
-	s.WriteString("reduce ")
-	e.Query.writeTo(s)
-	s.WriteString(" as ")
-	e.Pattern.writeTo(s)
-	s.WriteString(" (")
-	e.Start.writeTo(s)
-	s.WriteString("; ")
-	e.Update.writeTo(s)
-	s.WriteByte(')')
+func (e *Reduce) writeTo(p *printer) {
+	p.buf.WriteString("reduce ")
+	e.Query.writeTo(p)
+	p.buf.WriteString(" as ")
+	e.Pattern.writeTo(p)
+	p.buf.WriteString(" (")
+	e.Start.writeTo(p)
+	p.buf.WriteString("; ")
+	e.Update.writeTo(p)
+	p.buf.WriteByte(')')
 }
 
 // Foreach ...
@@ -745,25 +804,25 @@ type Foreach struct {
 }
 
 func (e *Foreach) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Foreach) writeTo(s *strings.Builder) {
-	s.WriteString("foreach ")
-	e.Query.writeTo(s)
-	s.WriteString(" as ")
-	e.Pattern.writeTo(s)
-	s.WriteString(" (")
-	e.Start.writeTo(s)
-	s.WriteString("; ")
-	e.Update.writeTo(s)
+func (e *Foreach) writeTo(p *printer) {
+	p.buf.WriteString("foreach ")
+	e.Query.writeTo(p)
+	p.buf.WriteString(" as ")
+	e.Pattern.writeTo(p)
+	p.buf.WriteString(" (")
+	e.Start.writeTo(p)
+	p.buf.WriteString("; ")
+	e.Update.writeTo(p)
 	if e.Extract != nil {
-		s.WriteString("; ")
-		e.Extract.writeTo(s)
+		p.buf.WriteString("; ")
+		e.Extract.writeTo(p)
 	}
-	s.WriteByte(')')
+	p.buf.WriteByte(')')
 }
 
 // Label ...
@@ -773,16 +832,16 @@ type Label struct {
 }
 
 func (e *Label) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *Label) writeTo(s *strings.Builder) {
-	s.WriteString("label ")
-	s.WriteString(e.Ident)
-	s.WriteString(" | ")
-	e.Body.writeTo(s)
+func (e *Label) writeTo(p *printer) {
+	p.buf.WriteString("label ")
+	p.buf.WriteString(e.Ident)
+	p.buf.WriteString(" | ")
+	e.Body.writeTo(p)
 }
 
 // ConstTerm ...
@@ -797,26 +856,26 @@ type ConstTerm struct {
 }
 
 func (e *ConstTerm) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *ConstTerm) writeTo(s *strings.Builder) {
+func (e *ConstTerm) writeTo(p *printer) {
 	if e.Object != nil {
-		e.Object.writeTo(s)
+		e.Object.writeTo(p)
 	} else if e.Array != nil {
-		e.Array.writeTo(s)
+		e.Array.writeTo(p)
 	} else if e.Number != "" {
-		s.WriteString(e.Number)
+		p.buf.WriteString(e.Number)
 	} else if e.Null {
-		s.WriteString("null")
+		p.buf.WriteString("null")
 	} else if e.True {
-		s.WriteString("true")
+		p.buf.WriteString("true")
 	} else if e.False {
-		s.WriteString("false")
+		p.buf.WriteString("false")
 	} else {
-		jsonEncodeString(s, e.Str)
+		jsonEncodeString(&p.buf, e.Str)
 	}
 }
 
@@ -852,24 +911,24 @@ type ConstObject struct {
 }
 
 func (e *ConstObject) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *ConstObject) writeTo(s *strings.Builder) {
+func (e *ConstObject) writeTo(p *printer) {
 	if len(e.KeyVals) == 0 {
-		s.WriteString("{}")
+		p.buf.WriteString("{}")
 		return
 	}
-	s.WriteString("{ ")
+	p.buf.WriteString("{ ")
 	for i, kv := range e.KeyVals {
 		if i > 0 {
-			s.WriteString(", ")
+			p.buf.WriteString(", ")
 		}
-		kv.writeTo(s)
+		kv.writeTo(p)
 	}
-	s.WriteString(" }")
+	p.buf.WriteString(" }")
 }
 
 // ToValue converts the object to map[string]any.
@@ -896,19 +955,19 @@ type ConstObjectKeyVal struct {
 }
 
 func (e *ConstObjectKeyVal) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *ConstObjectKeyVal) writeTo(s *strings.Builder) {
+func (e *ConstObjectKeyVal) writeTo(p *printer) {
 	if e.Key != "" {
-		s.WriteString(e.Key)
+		p.buf.WriteString(e.Key)
 	} else {
-		jsonEncodeString(s, e.KeyString)
+		jsonEncodeString(&p.buf, e.KeyString)
 	}
-	s.WriteString(": ")
-	e.Val.writeTo(s)
+	p.buf.WriteString(": ")
+	e.Val.writeTo(p)
 }
 
 // ConstArray ...
@@ -917,20 +976,20 @@ type ConstArray struct {
 }
 
 func (e *ConstArray) String() string {
-	var s strings.Builder
-	e.writeTo(&s)
-	return s.String()
+	p := newPrinter(nil)
+	e.writeTo(p)
+	return p.buf.String()
 }
 
-func (e *ConstArray) writeTo(s *strings.Builder) {
-	s.WriteByte('[')
+func (e *ConstArray) writeTo(p *printer) {
+	p.buf.WriteByte('[')
 	for i, e := range e.Elems {
 		if i > 0 {
-			s.WriteString(", ")
+			p.buf.WriteString(", ")
 		}
-		e.writeTo(s)
+		e.writeTo(p)
 	}
-	s.WriteByte(']')
+	p.buf.WriteByte(']')
 }
 
 func (e *ConstArray) toValue() []any {

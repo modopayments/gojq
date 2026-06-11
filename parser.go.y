@@ -20,6 +20,7 @@ func prependFuncDef(xs []*FuncDef, x *FuncDef) []*FuncDef {
   value    any
   token    string
   operator Operator
+  pos      int
 }
 
 %type<value> program header imports import meta body funcdefs funcdef funcargs query
@@ -59,7 +60,9 @@ program
         query := $3.(*Query)
         query.Meta = $1.(*ConstObject)
         query.Imports = $2.([]*Import)
-        yylex.(*lexer).result = query
+        l := yylex.(*lexer)
+        query.Comments = l.comments
+        l.result = query
     }
 
 header
@@ -102,7 +105,9 @@ meta
 body
     : funcdefs
     {
-        $$ = &Query{FuncDefs: reverseFuncDef($1.([]*FuncDef))}
+        q := &Query{FuncDefs: reverseFuncDef($1.([]*FuncDef))}
+        $$ = q
+        $<pos>$ = $<pos>1
     }
     | query
 
@@ -114,16 +119,19 @@ funcdefs
     | funcdef funcdefs
     {
         $$ = append($2.([]*FuncDef), $1.(*FuncDef))
+        $<pos>$ = $<pos>1
     }
 
 funcdef
     : tokDef tokIdent ':' query ';'
     {
         $$ = &FuncDef{Name: $2, Body: $4.(*Query)}
+        $<pos>$ = $<pos>1
     }
     | tokDef tokIdent '(' funcargs ')' ':' query ';'
     {
         $$ = &FuncDef{$2, $4.([]string), $7.(*Query)}
+        $<pos>$ = $<pos>1
     }
 
 funcargs
@@ -146,69 +154,90 @@ query
         query := $2.(*Query)
         query.FuncDefs = prependFuncDef(query.FuncDefs, $1.(*FuncDef))
         $$ = query
+        $<pos>$ = $<pos>1
     }
     | query '|' query
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpPipe, Right: $3.(*Query)}
+        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = q
+        $<pos>$ = $<pos>1
     }
     | query tokAs bindpatterns '|' query
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpPipe, Right: $5.(*Query), Patterns: $3.([]*Pattern)}
+        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $5.(*Query), Patterns: $3.([]*Pattern), Pos: $<pos>1}
+        $$ = q
+        $<pos>$ = $<pos>1
     }
     | tokLabel tokVariable '|' query
     {
-        $$ = &Query{Term: &Term{Type: TermTypeLabel, Label: &Label{$2, $4.(*Query)}}}
+        q := &Query{Term: &Term{Type: TermTypeLabel, Label: &Label{$2, $4.(*Query)}, Pos: $<pos>1}, Pos: $<pos>1}
+        $$ = q
+        $<pos>$ = $<pos>1
     }
     | query ',' query
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpComma, Right: $3.(*Query)}
+        q := &Query{Left: $1.(*Query), Op: OpComma, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = q
+        $<pos>$ = $<pos>1
     }
     | expr %prec tokExpr
 
 expr
     : expr tokAltOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr tokUpdateOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr tokOrOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpOr, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpOr, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr tokAndOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpAnd, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpAnd, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr tokCompareOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr '+' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpAdd, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpAdd, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr '-' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpSub, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpSub, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr '*' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpMul, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpMul, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr '/' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpDiv, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpDiv, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | expr '%' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpMod, Right: $3.(*Query)}
+        $$ = &Query{Left: $1.(*Query), Op: OpMod, Right: $3.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | term %prec tokTerm
     {
-        $$ = &Query{Term: $1.(*Term)}
+        t := $1.(*Term)
+        $$ = &Query{Term: t, Pos: t.Pos}
+        $<pos>$ = $<pos>1
     }
 
 bindpatterns
@@ -276,144 +305,180 @@ objectpattern
 term
     : '.'
     {
-        $$ = &Term{Type: TermTypeIdentity}
+        $$ = &Term{Type: TermTypeIdentity, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokRecurse
     {
-        $$ = &Term{Type: TermTypeRecurse}
+        $$ = &Term{Type: TermTypeRecurse, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokIndex
     {
-        $$ = &Term{Type: TermTypeIndex, Index: &Index{Name: $1}}
+        $$ = &Term{Type: TermTypeIndex, Index: &Index{Name: $1}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '.' suffix
     {
         suffix := $2.(*Suffix)
+        var t *Term
         if suffix.Iter {
-            $$ = &Term{Type: TermTypeIdentity, SuffixList: []*Suffix{suffix}}
+            t = &Term{Type: TermTypeIdentity, SuffixList: []*Suffix{suffix}, Pos: $<pos>1}
         } else {
-            $$ = &Term{Type: TermTypeIndex, Index: suffix.Index}
+            t = &Term{Type: TermTypeIndex, Index: suffix.Index, Pos: $<pos>1}
         }
+        $$ = t
+        $<pos>$ = $<pos>1
     }
     | '.' string
     {
-        $$ = &Term{Type: TermTypeIndex, Index: &Index{Str: $2.(*String)}}
+        $$ = &Term{Type: TermTypeIndex, Index: &Index{Str: $2.(*String)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokNull
     {
-        $$ = &Term{Type: TermTypeNull}
+        $$ = &Term{Type: TermTypeNull, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokTrue
     {
-        $$ = &Term{Type: TermTypeTrue}
+        $$ = &Term{Type: TermTypeTrue, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokFalse
     {
-        $$ = &Term{Type: TermTypeFalse}
+        $$ = &Term{Type: TermTypeFalse, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokIdentModuleIdent
     {
-        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1}}
+        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokIdentModuleIdent '(' args ')'
     {
-        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1, Args: $3.([]*Query)}}
+        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1, Args: $3.([]*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokVariableModuleVariable
     {
-        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1}}
+        $$ = &Term{Type: TermTypeFunc, Func: &Func{Name: $1}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '{' '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{}}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '{' objectkeyvals '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '{' objectkeyvals ',' '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '[' ']'
     {
-        $$ = &Term{Type: TermTypeArray, Array: &Array{}}
+        $$ = &Term{Type: TermTypeArray, Array: &Array{}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '[' query ']'
     {
-        $$ = &Term{Type: TermTypeArray, Array: &Array{$2.(*Query)}}
+        $$ = &Term{Type: TermTypeArray, Array: &Array{$2.(*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokNumber
     {
-        $$ = &Term{Type: TermTypeNumber, Number: $1}
+        $$ = &Term{Type: TermTypeNumber, Number: $1, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '+' term
     {
-        $$ = &Term{Type: TermTypeUnary, Unary: &Unary{OpAdd, $2.(*Term)}}
+        $$ = &Term{Type: TermTypeUnary, Unary: &Unary{OpAdd, $2.(*Term)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '-' term
     {
-        $$ = &Term{Type: TermTypeUnary, Unary: &Unary{OpSub, $2.(*Term)}}
+        $$ = &Term{Type: TermTypeUnary, Unary: &Unary{OpSub, $2.(*Term)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokFormat
     {
-        $$ = &Term{Type: TermTypeFormat, Format: $1}
+        $$ = &Term{Type: TermTypeFormat, Format: $1, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokFormat string
     {
-        $$ = &Term{Type: TermTypeFormat, Format: $1, Str: $2.(*String)}
+        $$ = &Term{Type: TermTypeFormat, Format: $1, Str: $2.(*String), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | string
     {
-        $$ = &Term{Type: TermTypeString, Str: $1.(*String)}
+        $$ = &Term{Type: TermTypeString, Str: $1.(*String), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokIf query tokThen query ifelifs ifelse tokEnd
     {
-        $$ = &Term{Type: TermTypeIf, If: &If{$2.(*Query), $4.(*Query), $5.([]*IfElif), $6.(*Query)}}
+        $$ = &Term{Type: TermTypeIf, If: &If{$2.(*Query), $4.(*Query), $5.([]*IfElif), $6.(*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokTry expr trycatch
     {
-        $$ = &Term{Type: TermTypeTry, Try: &Try{$2.(*Query), $3.(*Query)}}
+        $$ = &Term{Type: TermTypeTry, Try: &Try{$2.(*Query), $3.(*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokReduce expr tokAs pattern '(' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeReduce, Reduce: &Reduce{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query)}}
+        $$ = &Term{Type: TermTypeReduce, Reduce: &Reduce{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokForeach expr tokAs pattern '(' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), nil}}
+        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), nil}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokForeach expr tokAs pattern '(' query ';' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), $10.(*Query)}}
+        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), $10.(*Query)}, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | tokBreak tokVariable
     {
-        $$ = &Term{Type: TermTypeBreak, Break: $2}
+        $$ = &Term{Type: TermTypeBreak, Break: $2, Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | '(' query ')'
     {
-        $$ = &Term{Type: TermTypeQuery, Query: $2.(*Query)}
+        $$ = &Term{Type: TermTypeQuery, Query: $2.(*Query), Pos: $<pos>1}
+        $<pos>$ = $<pos>1
     }
     | term tokIndex
     {
         $1.(*Term).SuffixList = append($1.(*Term).SuffixList, &Suffix{Index: &Index{Name: $2}})
+        $<pos>$ = $<pos>1
     }
     | term suffix
     {
         $1.(*Term).SuffixList = append($1.(*Term).SuffixList, $2.(*Suffix))
+        $<pos>$ = $<pos>1
     }
     | term '?'
     {
         $1.(*Term).SuffixList = append($1.(*Term).SuffixList, &Suffix{Optional: true})
+        $<pos>$ = $<pos>1
     }
     | term '.' suffix
     {
         $1.(*Term).SuffixList = append($1.(*Term).SuffixList, $3.(*Suffix))
+        $<pos>$ = $<pos>1
     }
     | term '.' string
     {
         $1.(*Term).SuffixList = append($1.(*Term).SuffixList, &Suffix{Index: &Index{Str: $3.(*String)}})
+        $<pos>$ = $<pos>1
     }
 
 string

@@ -6,13 +6,15 @@ import (
 )
 
 type lexer struct {
-	source    string
-	offset    int
-	result    *Query
-	token     string
-	tokenType int
-	inString  bool
-	err       error
+	source     string
+	offset     int
+	tokenStart int // byte offset of the first character of the current token
+	result     *Query
+	comments   []Comment
+	token      string
+	tokenType  int
+	inString   bool
+	err        error
 }
 
 func newLexer(src string) *lexer {
@@ -46,12 +48,16 @@ var keywords = map[string]int{
 }
 
 func (l *lexer) Lex(lval *yySymType) (tokenType int) {
-	defer func() { l.tokenType = tokenType }()
+	defer func() {
+		l.tokenType = tokenType
+		lval.pos = l.tokenStart
+	}()
 	if len(l.source) == l.offset {
 		l.token = ""
 		return eof
 	}
 	if l.inString {
+		l.tokenStart = l.offset
 		tok, str := l.scanString(l.offset)
 		lval.token = str
 		return tok
@@ -245,13 +251,15 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 
 func (l *lexer) next() (byte, bool) {
 	for {
+		start := l.offset
 		ch := l.source[l.offset]
 		l.offset++
 		if ch == '#' {
-			if l.skipComment() {
+			if l.scanComment(start) {
 				return 0, true
 			}
 		} else if !isWhite(ch) {
+			l.tokenStart = start
 			return ch, false
 		} else if len(l.source) == l.offset {
 			return 0, true
@@ -259,21 +267,26 @@ func (l *lexer) next() (byte, bool) {
 	}
 }
 
-func (l *lexer) skipComment() bool {
+// scanComment records the comment starting at start (the '#' byte) and returns
+// true if EOF was reached before a newline.
+func (l *lexer) scanComment(start int) bool {
+	col := start
+	for i := start - 1; i >= 0; i-- {
+		if l.source[i] == '\n' {
+			col = start - i - 1
+			break
+		}
+		if i == 0 {
+			col = start
+		}
+	}
 	for {
 		switch l.peek() {
 		case 0:
+			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col})
 			return true
-		case '\\':
-			switch l.offset++; l.peek() {
-			case '\\', '\n':
-				l.offset++
-			case '\r':
-				if l.offset++; l.peek() == '\n' {
-					l.offset++
-				}
-			}
 		case '\n', '\r':
+			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col})
 			return false
 		default:
 			l.offset++

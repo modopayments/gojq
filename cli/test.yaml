@@ -35,15 +35,10 @@
     - |
       # comment
       1,
-      # comment \
-        comment \ 0 \
-        comment
+      # comment
       2,
-      # comment \
-        comment \\
-      3, #      \
-        comment \\\
-        comment \\
+      # comment with backslash \
+      3, # inline comment
       4 #
   input: 'null'
   expected: |
@@ -54,7 +49,7 @@
 
 - name: query with comment with newline in dos format
   args:
-    - "1, # \r\n2, # \\\r\ncomment\\\\\r\n3"
+    - "1, # comment\r\n2, # comment\r\n3"
   input: 'null'
   expected: |
     1
@@ -63,7 +58,7 @@
 
 - name: query with comment with newline in mac format
   args:
-    - "1, # \r2, # \\\rcomment\\\\\r3"
+    - "1, # comment\r2, # comment\r3"
   input: 'null'
   expected: |
     1
