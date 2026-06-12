@@ -664,7 +664,7 @@ func (c *compiler) compileIf(e *If) error {
 	})()
 	setjumpifnot()
 	if len(e.Elif) > 0 {
-		return c.compileIf(&If{e.Elif[0].Cond, e.Elif[0].Then, e.Elif[1:], e.Else})
+		return c.compileIf(&If{Cond: e.Elif[0].Cond, Then: e.Elif[0].Then, Elif: e.Elif[1:], Else: e.Else})
 	}
 	if e.Else != nil {
 		defer c.newScopeDepth()()

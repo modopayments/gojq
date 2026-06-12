@@ -1215,7 +1215,7 @@ yydefault:
 		yyDollar = yyS[yypt-7 : yypt+1]
 //line parser.go.y:424
 		{
-			yyVAL.value = &Term{Type: TermTypeIf, If: &If{yyDollar[2].value.(*Query), yyDollar[4].value.(*Query), yyDollar[5].value.([]*IfElif), yyDollar[6].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeIf, If: &If{Cond: yyDollar[2].value.(*Query), Then: yyDollar[4].value.(*Query), Elif: yyDollar[5].value.([]*IfElif), Else: yyDollar[6].value.(*Query), EndPos: yyDollar[7].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 73:
@@ -1257,7 +1257,7 @@ yydefault:
 		yyDollar = yyS[yypt-3 : yypt+1]
 //line parser.go.y:454
 		{
-			yyVAL.value = &Term{Type: TermTypeQuery, Query: yyDollar[2].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeQuery, Query: yyDollar[2].value.(*Query), Pos: yyDollar[1].pos, ClosePos: yyDollar[3].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 79:

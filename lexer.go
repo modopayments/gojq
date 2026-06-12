@@ -271,6 +271,7 @@ func (l *lexer) next() (byte, bool) {
 // true if EOF was reached before a newline.
 func (l *lexer) scanComment(start int) bool {
 	col := start
+	inline := false
 	for i := start - 1; i >= 0; i-- {
 		if l.source[i] == '\n' {
 			col = start - i - 1
@@ -279,14 +280,17 @@ func (l *lexer) scanComment(start int) bool {
 		if i == 0 {
 			col = start
 		}
+		if l.source[i] != ' ' && l.source[i] != '\t' {
+			inline = true
+		}
 	}
 	for {
 		switch l.peek() {
 		case 0:
-			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col})
+			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col, Inline: inline})
 			return true
 		case '\n', '\r':
-			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col})
+			l.comments = append(l.comments, Comment{Text: l.source[start:l.offset], Pos: start, Col: col, Inline: inline})
 			return false
 		default:
 			l.offset++

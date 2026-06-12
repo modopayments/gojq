@@ -7,9 +7,10 @@ import (
 
 // Comment is a single-line jq comment (# to end of line).
 type Comment struct {
-	Text string // includes the leading #, no trailing newline
-	Pos  int    // byte offset of the # in the source
-	Col  int    // column of the # (bytes since the last newline)
+	Text   string // includes the leading #, no trailing newline
+	Pos    int    // byte offset of the # in the source
+	Col    int    // column of the # (bytes since the last newline)
+	Inline bool   // true when non-whitespace code precedes # on the same line
 }
 
 // printer holds state for position-aware printing (gofmt pattern).
@@ -242,6 +243,7 @@ type Term struct {
 	Query      *Query
 	SuffixList []*Suffix
 	Pos        int // byte offset of the first token of this term in the source
+	ClosePos   int // byte offset of the closing ')' for TermTypeQuery terms (0 otherwise)
 }
 
 func (e *Term) String() string {
@@ -700,10 +702,11 @@ func (e *Suffix) toIndices(xs []any) []any {
 
 // If ...
 type If struct {
-	Cond *Query
-	Then *Query
-	Elif []*IfElif
-	Else *Query
+	Cond   *Query
+	Then   *Query
+	Elif   []*IfElif
+	Else   *Query
+	EndPos int
 }
 
 func (e *If) String() string {

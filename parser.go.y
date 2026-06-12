@@ -422,7 +422,7 @@ term
     }
     | tokIf query tokThen query ifelifs ifelse tokEnd
     {
-        $$ = &Term{Type: TermTypeIf, If: &If{$2.(*Query), $4.(*Query), $5.([]*IfElif), $6.(*Query)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeIf, If: &If{Cond: $2.(*Query), Then: $4.(*Query), Elif: $5.([]*IfElif), Else: $6.(*Query), EndPos: $<pos>7}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokTry expr trycatch
@@ -452,7 +452,7 @@ term
     }
     | '(' query ')'
     {
-        $$ = &Term{Type: TermTypeQuery, Query: $2.(*Query), Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeQuery, Query: $2.(*Query), Pos: $<pos>1, ClosePos: $<pos>3}
         $<pos>$ = $<pos>1
     }
     | term tokIndex
