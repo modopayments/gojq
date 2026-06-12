@@ -1138,35 +1138,35 @@ yydefault:
 		yyDollar = yyS[yypt-2 : yypt+1]
 //line parser.go.y:369
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{ClosePos: yyDollar[2].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 62:
 		yyDollar = yyS[yypt-3 : yypt+1]
 //line parser.go.y:374
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{KeyVals: yyDollar[2].value.([]*ObjectKeyVal), ClosePos: yyDollar[3].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 63:
 		yyDollar = yyS[yypt-4 : yypt+1]
 //line parser.go.y:379
 		{
-			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{yyDollar[2].value.([]*ObjectKeyVal)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeObject, Object: &Object{KeyVals: yyDollar[2].value.([]*ObjectKeyVal), ClosePos: yyDollar[4].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 64:
 		yyDollar = yyS[yypt-2 : yypt+1]
 //line parser.go.y:384
 		{
-			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{ClosePos: yyDollar[2].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 65:
 		yyDollar = yyS[yypt-3 : yypt+1]
 //line parser.go.y:389
 		{
-			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{yyDollar[2].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeArray, Array: &Array{Query: yyDollar[2].value.(*Query), ClosePos: yyDollar[3].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 66:
@@ -1229,21 +1229,21 @@ yydefault:
 		yyDollar = yyS[yypt-9 : yypt+1]
 //line parser.go.y:434
 		{
-			yyVAL.value = &Term{Type: TermTypeReduce, Reduce: &Reduce{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeReduce, Reduce: &Reduce{Query: yyDollar[2].value.(*Query), Pattern: yyDollar[4].value.(*Pattern), Start: yyDollar[6].value.(*Query), Update: yyDollar[8].value.(*Query), ClosePos: yyDollar[9].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 75:
 		yyDollar = yyS[yypt-9 : yypt+1]
 //line parser.go.y:439
 		{
-			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), nil}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{Query: yyDollar[2].value.(*Query), Pattern: yyDollar[4].value.(*Pattern), Start: yyDollar[6].value.(*Query), Update: yyDollar[8].value.(*Query), Extract: nil, ClosePos: yyDollar[9].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 76:
 		yyDollar = yyS[yypt-11 : yypt+1]
 //line parser.go.y:444
 		{
-			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{yyDollar[2].value.(*Query), yyDollar[4].value.(*Pattern), yyDollar[6].value.(*Query), yyDollar[8].value.(*Query), yyDollar[10].value.(*Query)}, Pos: yyDollar[1].pos}
+			yyVAL.value = &Term{Type: TermTypeForeach, Foreach: &Foreach{Query: yyDollar[2].value.(*Query), Pattern: yyDollar[4].value.(*Pattern), Start: yyDollar[6].value.(*Query), Update: yyDollar[8].value.(*Query), Extract: yyDollar[10].value.(*Query), ClosePos: yyDollar[11].pos}, Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 77:

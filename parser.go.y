@@ -367,27 +367,27 @@ term
     }
     | '{' '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{ClosePos: $<pos>2}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | '{' objectkeyvals '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{KeyVals: $2.([]*ObjectKeyVal), ClosePos: $<pos>3}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | '{' objectkeyvals ',' '}'
     {
-        $$ = &Term{Type: TermTypeObject, Object: &Object{$2.([]*ObjectKeyVal)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeObject, Object: &Object{KeyVals: $2.([]*ObjectKeyVal), ClosePos: $<pos>4}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | '[' ']'
     {
-        $$ = &Term{Type: TermTypeArray, Array: &Array{}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeArray, Array: &Array{ClosePos: $<pos>2}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | '[' query ']'
     {
-        $$ = &Term{Type: TermTypeArray, Array: &Array{$2.(*Query)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeArray, Array: &Array{Query: $2.(*Query), ClosePos: $<pos>3}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokNumber
@@ -432,17 +432,17 @@ term
     }
     | tokReduce expr tokAs pattern '(' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeReduce, Reduce: &Reduce{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeReduce, Reduce: &Reduce{Query: $2.(*Query), Pattern: $4.(*Pattern), Start: $6.(*Query), Update: $8.(*Query), ClosePos: $<pos>9}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokForeach expr tokAs pattern '(' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), nil}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{Query: $2.(*Query), Pattern: $4.(*Pattern), Start: $6.(*Query), Update: $8.(*Query), Extract: nil, ClosePos: $<pos>9}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokForeach expr tokAs pattern '(' query ';' query ';' query ')'
     {
-        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{$2.(*Query), $4.(*Pattern), $6.(*Query), $8.(*Query), $10.(*Query)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeForeach, Foreach: &Foreach{Query: $2.(*Query), Pattern: $4.(*Pattern), Start: $6.(*Query), Update: $8.(*Query), Extract: $10.(*Query), ClosePos: $<pos>11}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokBreak tokVariable

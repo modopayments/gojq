@@ -585,7 +585,8 @@ func (e *String) writeTo(p *printer) {
 
 // Object ...
 type Object struct {
-	KeyVals []*ObjectKeyVal
+	KeyVals  []*ObjectKeyVal
+	ClosePos int // byte offset of the closing '}'
 }
 
 func (e *Object) String() string {
@@ -642,7 +643,8 @@ func (e *ObjectKeyVal) writeTo(p *printer) {
 
 // Array ...
 type Array struct {
-	Query *Query
+	Query    *Query
+	ClosePos int // byte offset of the closing ']'
 }
 
 func (e *Array) String() string {
@@ -781,10 +783,11 @@ func (e *Try) writeTo(p *printer) {
 
 // Reduce ...
 type Reduce struct {
-	Query   *Query
-	Pattern *Pattern
-	Start   *Query
-	Update  *Query
+	Query    *Query
+	Pattern  *Pattern
+	Start    *Query
+	Update   *Query
+	ClosePos int // byte offset of the closing ')'
 }
 
 func (e *Reduce) String() string {
@@ -807,11 +810,12 @@ func (e *Reduce) writeTo(p *printer) {
 
 // Foreach ...
 type Foreach struct {
-	Query   *Query
-	Pattern *Pattern
-	Start   *Query
-	Update  *Query
-	Extract *Query
+	Query    *Query
+	Pattern  *Pattern
+	Start    *Query
+	Update   *Query
+	Extract  *Query
+	ClosePos int // byte offset of the closing ')'
 }
 
 func (e *Foreach) String() string {
