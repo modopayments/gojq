@@ -125,12 +125,12 @@ funcdefs
 funcdef
     : tokDef tokIdent ':' query ';'
     {
-        $$ = &FuncDef{Name: $2, Body: $4.(*Query)}
+        $$ = &FuncDef{Name: $2, Body: $4.(*Query), Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokDef tokIdent '(' funcargs ')' ':' query ';'
     {
-        $$ = &FuncDef{$2, $4.([]string), $7.(*Query)}
+        $$ = &FuncDef{Name: $2, Args: $4.([]string), Body: $7.(*Query), Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
 
@@ -158,13 +158,13 @@ query
     }
     | query '|' query
     {
-        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $3.(*Query), Pos: $<pos>1}
+        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $$ = q
         $<pos>$ = $<pos>1
     }
     | query tokAs bindpatterns '|' query
     {
-        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $5.(*Query), Patterns: $3.([]*Pattern), Pos: $<pos>1}
+        q := &Query{Left: $1.(*Query), Op: OpPipe, Right: $5.(*Query), Patterns: $3.([]*Pattern), Pos: $<pos>1, OpPos: $<pos>4}
         $$ = q
         $<pos>$ = $<pos>1
     }
@@ -176,7 +176,7 @@ query
     }
     | query ',' query
     {
-        q := &Query{Left: $1.(*Query), Op: OpComma, Right: $3.(*Query), Pos: $<pos>1}
+        q := &Query{Left: $1.(*Query), Op: OpComma, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $$ = q
         $<pos>$ = $<pos>1
     }
@@ -185,52 +185,52 @@ query
 expr
     : expr tokAltOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr tokUpdateOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr tokOrOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpOr, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpOr, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr tokAndOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpAnd, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpAnd, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr tokCompareOp expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: $2, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr '+' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpAdd, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpAdd, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr '-' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpSub, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpSub, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr '*' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpMul, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpMul, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr '/' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpDiv, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpDiv, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | expr '%' expr
     {
-        $$ = &Query{Left: $1.(*Query), Op: OpMod, Right: $3.(*Query), Pos: $<pos>1}
+        $$ = &Query{Left: $1.(*Query), Op: OpMod, Right: $3.(*Query), Pos: $<pos>1, OpPos: $<pos>2}
         $<pos>$ = $<pos>1
     }
     | term %prec tokTerm
@@ -422,12 +422,12 @@ term
     }
     | tokIf query tokThen query ifelifs ifelse tokEnd
     {
-        $$ = &Term{Type: TermTypeIf, If: &If{Cond: $2.(*Query), Then: $4.(*Query), Elif: $5.([]*IfElif), Else: $6.(*Query), EndPos: $<pos>7}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeIf, If: &If{Cond: $2.(*Query), Then: $4.(*Query), ThenPos: $<pos>3, Elif: $5.([]*IfElif), Else: $6.(*Query), ElsePos: $<pos>6, EndPos: $<pos>7}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokTry expr trycatch
     {
-        $$ = &Term{Type: TermTypeTry, Try: &Try{$2.(*Query), $3.(*Query)}, Pos: $<pos>1}
+        $$ = &Term{Type: TermTypeTry, Try: &Try{Body: $2.(*Query), Catch: $3.(*Query), CatchPos: $<pos>3}, Pos: $<pos>1}
         $<pos>$ = $<pos>1
     }
     | tokReduce expr tokAs pattern '(' query ';' query ')'
@@ -553,7 +553,7 @@ ifelifs
     }
     | ifelifs tokElif query tokThen query
     {
-        $$ = append($1.([]*IfElif), &IfElif{$3.(*Query), $5.(*Query)})
+        $$ = append($1.([]*IfElif), &IfElif{Cond: $3.(*Query), Then: $5.(*Query), Pos: $<pos>2, ThenPos: $<pos>4})
     }
 
 ifelse
@@ -564,6 +564,7 @@ ifelse
     | tokElse query
     {
         $$ = $2
+        $<pos>$ = $<pos>1
     }
 
 trycatch
@@ -574,6 +575,7 @@ trycatch
     | tokCatch expr
     {
         $$ = $2
+        $<pos>$ = $<pos>1
     }
 
 objectkeyvals
@@ -589,23 +591,23 @@ objectkeyvals
 objectkeyval
     : objectkey ':' objectval
     {
-        $$ = &ObjectKeyVal{Key: $1, Val: $3.(*Query)}
+        $$ = &ObjectKeyVal{Key: $1, Val: $3.(*Query), Pos: $<pos>1}
     }
     | string ':' objectval
     {
-        $$ = &ObjectKeyVal{KeyString: $1.(*String), Val: $3.(*Query)}
+        $$ = &ObjectKeyVal{KeyString: $1.(*String), Val: $3.(*Query), Pos: $<pos>1}
     }
     | '(' query ')' ':' objectval
     {
-        $$ = &ObjectKeyVal{KeyQuery: $2.(*Query), Val: $5.(*Query)}
+        $$ = &ObjectKeyVal{KeyQuery: $2.(*Query), Val: $5.(*Query), Pos: $<pos>1}
     }
     | objectkey
     {
-        $$ = &ObjectKeyVal{Key: $1}
+        $$ = &ObjectKeyVal{Key: $1, Pos: $<pos>1}
     }
     | string
     {
-        $$ = &ObjectKeyVal{KeyString: $1.(*String)}
+        $$ = &ObjectKeyVal{KeyString: $1.(*String), Pos: $<pos>1}
     }
 
 objectkey

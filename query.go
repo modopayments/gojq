@@ -85,6 +85,7 @@ type Query struct {
 	Patterns []*Pattern
 	Op       Operator
 	Pos      int       // byte offset of the first token of this query in the source
+	OpPos    int       // byte offset of the binary operator token (|, ,, //, +, etc.); 0 for non-binary queries
 	Comments []Comment // all comments in the program; populated only on the root Query
 }
 
@@ -197,6 +198,7 @@ type FuncDef struct {
 	Name string
 	Args []string
 	Body *Query
+	Pos  int // byte offset of the "def" keyword
 }
 
 func (e *FuncDef) String() string {
@@ -613,6 +615,7 @@ type ObjectKeyVal struct {
 	KeyString *String
 	KeyQuery  *Query
 	Val       *Query
+	Pos       int // byte offset of the key token (or opening '(' for computed keys)
 }
 
 func (e *ObjectKeyVal) String() string {
@@ -702,11 +705,13 @@ func (e *Suffix) toIndices(xs []any) []any {
 
 // If ...
 type If struct {
-	Cond   *Query
-	Then   *Query
-	Elif   []*IfElif
-	Else   *Query
-	EndPos int
+	Cond    *Query
+	Then    *Query
+	Elif    []*IfElif
+	Else    *Query
+	ThenPos int // byte offset of the "then" keyword
+	ElsePos int // byte offset of the "else" keyword (0 when no else clause)
+	EndPos  int // byte offset of the "end" keyword
 }
 
 func (e *If) String() string {
@@ -733,8 +738,10 @@ func (e *If) writeTo(p *printer) {
 
 // IfElif ...
 type IfElif struct {
-	Cond *Query
-	Then *Query
+	Cond    *Query
+	Then    *Query
+	Pos     int // byte offset of the "elif" keyword
+	ThenPos int // byte offset of the "then" keyword
 }
 
 func (e *IfElif) String() string {
@@ -752,8 +759,9 @@ func (e *IfElif) writeTo(p *printer) {
 
 // Try ...
 type Try struct {
-	Body  *Query
-	Catch *Query
+	Body     *Query
+	Catch    *Query
+	CatchPos int // byte offset of the "catch" keyword (0 when no catch clause)
 }
 
 func (e *Try) String() string {
