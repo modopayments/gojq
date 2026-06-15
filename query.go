@@ -76,17 +76,17 @@ func Parse(src string) (*Query, error) {
 
 // Query represents the abstract syntax tree of a jq query.
 type Query struct {
-	Meta     *ConstObject
-	Imports  []*Import
-	FuncDefs []*FuncDef
-	Term     *Term
-	Left     *Query
-	Right    *Query
-	Patterns []*Pattern
-	Op       Operator
-	Pos      int       // byte offset of the first token of this query in the source
-	OpPos    int       // byte offset of the binary operator token (|, ,, //, +, etc.); 0 for non-binary queries
-	Comments []Comment // all comments in the program; populated only on the root Query
+	Meta     *ConstObject `json:"meta,omitempty"`
+	Imports  []*Import    `json:"imports,omitempty"`
+	FuncDefs []*FuncDef   `json:"func_defs,omitempty"`
+	Term     *Term        `json:"term,omitempty"`
+	Left     *Query       `json:"left,omitempty"`
+	Right    *Query       `json:"right,omitempty"`
+	Patterns []*Pattern   `json:"patterns,omitempty"`
+	Op       Operator     `json:"op,omitempty"`
+	Pos      int          `json:"pos,omitempty"`      // byte offset of the first token of this query in the source
+	OpPos    int          `json:"op_pos,omitempty"`   // byte offset of the binary operator token (|, ,, //, +, etc.); 0 for non-binary queries
+	Comments []Comment    `json:"comments,omitempty"` // all comments in the program; populated only on the root Query
 }
 
 // Run the query.
@@ -164,10 +164,10 @@ func (e *Query) toIndices(xs []any) []any {
 
 // Import ...
 type Import struct {
-	ImportPath  string
-	ImportAlias string
-	IncludePath string
-	Meta        *ConstObject
+	ImportPath  *Token       `json:"import_path,omitempty"`
+	ImportAlias *Token       `json:"import_alias,omitempty"`
+	IncludePath *Token       `json:"include_path,omitempty"`
+	Meta        *ConstObject `json:"meta,omitempty"`
 }
 
 func (e *Import) String() string {
@@ -177,14 +177,14 @@ func (e *Import) String() string {
 }
 
 func (e *Import) writeTo(p *printer) {
-	if e.ImportPath != "" {
+	if e.ImportPath != nil && e.ImportPath.Str != "" {
 		p.buf.WriteString("import ")
-		jsonEncodeString(&p.buf, e.ImportPath)
+		jsonEncodeString(&p.buf, e.ImportPath.Str)
 		p.buf.WriteString(" as ")
-		p.buf.WriteString(e.ImportAlias)
+		p.buf.WriteString(e.ImportAlias.Str)
 	} else {
 		p.buf.WriteString("include ")
-		jsonEncodeString(&p.buf, e.IncludePath)
+		jsonEncodeString(&p.buf, e.IncludePath.Str)
 	}
 	if e.Meta != nil {
 		p.buf.WriteByte(' ')
@@ -195,10 +195,10 @@ func (e *Import) writeTo(p *printer) {
 
 // FuncDef ...
 type FuncDef struct {
-	Name string
-	Args []string
-	Body *Query
-	Pos  int // byte offset of the "def" keyword
+	Name *Token   `json:"name,omitempty"`
+	Args []*Token `json:"args,omitempty"`
+	Body *Query   `json:"body,omitempty"`
+	Pos  int      `json:"pos,omitempty"` // byte offset of the "def" keyword
 }
 
 func (e *FuncDef) String() string {
@@ -209,14 +209,14 @@ func (e *FuncDef) String() string {
 
 func (e *FuncDef) writeTo(p *printer) {
 	p.buf.WriteString("def ")
-	p.buf.WriteString(e.Name)
+	p.buf.WriteString(e.Name.Str)
 	if len(e.Args) > 0 {
 		p.buf.WriteByte('(')
 		for i, e := range e.Args {
 			if i > 0 {
 				p.buf.WriteString("; ")
 			}
-			p.buf.WriteString(e)
+			p.buf.WriteString(e.Str)
 		}
 		p.buf.WriteByte(')')
 	}
@@ -227,25 +227,25 @@ func (e *FuncDef) writeTo(p *printer) {
 
 // Term ...
 type Term struct {
-	Type       TermType
-	Index      *Index
-	Func       *Func
-	Object     *Object
-	Array      *Array
-	Number     string
-	Unary      *Unary
-	Format     string
-	Str        *String
-	If         *If
-	Try        *Try
-	Reduce     *Reduce
-	Foreach    *Foreach
-	Label      *Label
-	Break      string
-	Query      *Query
-	SuffixList []*Suffix
-	Pos        int // byte offset of the first token of this term in the source
-	ClosePos   int // byte offset of the closing ')' for TermTypeQuery terms (0 otherwise)
+	Type       TermType   `json:"type,omitempty"`
+	Index      *Index     `json:"index,omitempty"`
+	Func       *Func      `json:"func,omitempty"`
+	Object     *Object    `json:"object,omitempty"`
+	Array      *Array     `json:"array,omitempty"`
+	Number     *Token     `json:"number,omitempty"`
+	Unary      *Unary     `json:"unary,omitempty"`
+	Format     *Token     `json:"format,omitempty"`
+	Str        *String    `json:"str,omitempty"`
+	If         *If        `json:"if,omitempty"`
+	Try        *Try       `json:"try,omitempty"`
+	Reduce     *Reduce    `json:"reduce,omitempty"`
+	Foreach    *Foreach   `json:"foreach,omitempty"`
+	Label      *Label     `json:"label,omitempty"`
+	Break      *Token     `json:"break,omitempty"`
+	Query      *Query     `json:"query,omitempty"`
+	SuffixList []*Suffix  `json:"suffix_list,omitempty"`
+	Pos        int        `json:"pos,omitempty"`       // byte offset of the first token of this term in the source
+	ClosePos   int        `json:"close_pos,omitempty"` // byte offset of the closing ')' for TermTypeQuery terms (0 otherwise)
 }
 
 func (e *Term) String() string {
@@ -275,11 +275,11 @@ func (e *Term) writeTo(p *printer) {
 	case TermTypeArray:
 		e.Array.writeTo(p)
 	case TermTypeNumber:
-		p.buf.WriteString(e.Number)
+		p.buf.WriteString(e.Number.Str)
 	case TermTypeUnary:
 		e.Unary.writeTo(p)
 	case TermTypeFormat:
-		p.buf.WriteString(e.Format)
+		p.buf.WriteString(e.Format.Str)
 		if e.Str != nil {
 			p.buf.WriteByte(' ')
 			e.Str.writeTo(p)
@@ -298,7 +298,7 @@ func (e *Term) writeTo(p *printer) {
 		e.Label.writeTo(p)
 	case TermTypeBreak:
 		p.buf.WriteString("break ")
-		p.buf.WriteString(e.Break)
+		p.buf.WriteString(e.Break.Str)
 	case TermTypeQuery:
 		p.buf.WriteByte('(')
 		e.Query.writeTo(p)
@@ -312,12 +312,12 @@ func (e *Term) writeTo(p *printer) {
 func (e *Term) toIndexKey() any {
 	switch e.Type {
 	case TermTypeNumber:
-		return toNumber(e.Number)
+		return toNumber(e.Number.Str)
 	case TermTypeUnary:
 		return e.Unary.toNumber()
 	case TermTypeString:
-		if e.Str.Queries == nil {
-			return e.Str.Str
+		if e.Str.Queries == nil && e.Str.Str != nil {
+			return e.Str.Str.Str
 		}
 		return nil
 	default:
@@ -348,15 +348,15 @@ func (e *Term) toIndices(xs []any) []any {
 
 func (e *Term) toNumber() any {
 	if e.Type == TermTypeNumber {
-		return toNumber(e.Number)
+		return toNumber(e.Number.Str)
 	}
 	return nil
 }
 
 // Unary ...
 type Unary struct {
-	Op   Operator
-	Term *Term
+	Op   Operator `json:"op,omitempty"`
+	Term *Term    `json:"term,omitempty"`
 }
 
 func (e *Unary) String() string {
@@ -380,9 +380,9 @@ func (e *Unary) toNumber() any {
 
 // Pattern ...
 type Pattern struct {
-	Name   string
-	Array  []*Pattern
-	Object []*PatternObject
+	Name   *Token           `json:"name,omitempty"`
+	Array  []*Pattern       `json:"array,omitempty"`
+	Object []*PatternObject `json:"object,omitempty"`
 }
 
 func (e *Pattern) String() string {
@@ -392,8 +392,8 @@ func (e *Pattern) String() string {
 }
 
 func (e *Pattern) writeTo(p *printer) {
-	if e.Name != "" {
-		p.buf.WriteString(e.Name)
+	if e.Name != nil && e.Name.Str != "" {
+		p.buf.WriteString(e.Name.Str)
 	} else if len(e.Array) > 0 {
 		p.buf.WriteByte('[')
 		for i, e := range e.Array {
@@ -417,10 +417,10 @@ func (e *Pattern) writeTo(p *printer) {
 
 // PatternObject ...
 type PatternObject struct {
-	Key       string
-	KeyString *String
-	KeyQuery  *Query
-	Val       *Pattern
+	Key       *Token   `json:"key,omitempty"`
+	KeyString *String  `json:"key_string,omitempty"`
+	KeyQuery  *Query   `json:"key_query,omitempty"`
+	Val       *Pattern `json:"val,omitempty"`
 }
 
 func (e *PatternObject) String() string {
@@ -430,8 +430,8 @@ func (e *PatternObject) String() string {
 }
 
 func (e *PatternObject) writeTo(p *printer) {
-	if e.Key != "" {
-		p.buf.WriteString(e.Key)
+	if e.Key != nil && e.Key.Str != "" {
+		p.buf.WriteString(e.Key.Str)
 	} else if e.KeyString != nil {
 		e.KeyString.writeTo(p)
 	} else if e.KeyQuery != nil {
@@ -447,11 +447,11 @@ func (e *PatternObject) writeTo(p *printer) {
 
 // Index ...
 type Index struct {
-	Name    string
-	Str     *String
-	Start   *Query
-	End     *Query
-	IsSlice bool
+	Name    *Token  `json:"name,omitempty"`
+	Str     *String `json:"str,omitempty"`
+	Start   *Query  `json:"start,omitempty"`
+	End     *Query  `json:"end,omitempty"`
+	IsSlice bool    `json:"is_slice,omitempty"`
 }
 
 func (e *Index) String() string {
@@ -472,8 +472,8 @@ func (e *Index) writeTo(p *printer) {
 }
 
 func (e *Index) writeSuffixTo(p *printer) {
-	if e.Name != "" {
-		p.buf.WriteString(e.Name)
+	if e.Name != nil && e.Name.Str != "" {
+		p.buf.WriteString(e.Name.Str)
 	} else if e.Str != nil {
 		e.Str.writeTo(p)
 	} else {
@@ -494,11 +494,13 @@ func (e *Index) writeSuffixTo(p *printer) {
 }
 
 func (e *Index) toIndexKey() any {
-	if e.Name != "" {
-		return e.Name
+	if e.Name != nil && e.Name.Str != "" {
+		return e.Name.Str
 	} else if e.Str != nil {
 		if e.Str.Queries == nil {
-			return e.Str.Str
+			if e.Str.Str != nil {
+				return e.Str.Str.Str
+			}
 		}
 	} else if !e.IsSlice {
 		return e.Start.toIndexKey()
@@ -529,8 +531,8 @@ func (e *Index) toIndices(xs []any) []any {
 
 // Func ...
 type Func struct {
-	Name string
-	Args []*Query
+	Name *Token   `json:"name,omitempty"`
+	Args []*Query `json:"args,omitempty"`
 }
 
 func (e *Func) String() string {
@@ -540,7 +542,7 @@ func (e *Func) String() string {
 }
 
 func (e *Func) writeTo(p *printer) {
-	p.buf.WriteString(e.Name)
+	p.buf.WriteString(e.Name.Str)
 	if len(e.Args) > 0 {
 		p.buf.WriteByte('(')
 		for i, e := range e.Args {
@@ -555,8 +557,8 @@ func (e *Func) writeTo(p *printer) {
 
 // String ...
 type String struct {
-	Str     string
-	Queries []*Query
+	Str     *Token   `json:"str,omitempty"`
+	Queries []*Query `json:"queries,omitempty"`
 }
 
 func (e *String) String() string {
@@ -567,7 +569,11 @@ func (e *String) String() string {
 
 func (e *String) writeTo(p *printer) {
 	if e.Queries == nil {
-		jsonEncodeString(&p.buf, e.Str)
+		if e.Str != nil {
+			jsonEncodeString(&p.buf, e.Str.Str)
+		} else {
+			jsonEncodeString(&p.buf, "")
+		}
 		return
 	}
 	p.buf.WriteByte('"')
@@ -585,8 +591,8 @@ func (e *String) writeTo(p *printer) {
 
 // Object ...
 type Object struct {
-	KeyVals  []*ObjectKeyVal
-	ClosePos int // byte offset of the closing '}'
+	KeyVals  []*ObjectKeyVal `json:"key_vals,omitempty"`
+	ClosePos int             `json:"close_pos,omitempty"` // byte offset of the closing '}'
 }
 
 func (e *Object) String() string {
@@ -612,11 +618,11 @@ func (e *Object) writeTo(p *printer) {
 
 // ObjectKeyVal ...
 type ObjectKeyVal struct {
-	Key       string
-	KeyString *String
-	KeyQuery  *Query
-	Val       *Query
-	Pos       int // byte offset of the key token (or opening '(' for computed keys)
+	Key       *Token  `json:"key,omitempty"`
+	KeyString *String `json:"key_string,omitempty"`
+	KeyQuery  *Query  `json:"key_query,omitempty"`
+	Val       *Query  `json:"val,omitempty"`
+	Pos       int     `json:"pos,omitempty"` // byte offset of the key token (or opening '(' for computed keys)
 }
 
 func (e *ObjectKeyVal) String() string {
@@ -626,8 +632,8 @@ func (e *ObjectKeyVal) String() string {
 }
 
 func (e *ObjectKeyVal) writeTo(p *printer) {
-	if e.Key != "" {
-		p.buf.WriteString(e.Key)
+	if e.Key != nil && e.Key.Str != "" {
+		p.buf.WriteString(e.Key.Str)
 	} else if e.KeyString != nil {
 		e.KeyString.writeTo(p)
 	} else if e.KeyQuery != nil {
@@ -643,8 +649,8 @@ func (e *ObjectKeyVal) writeTo(p *printer) {
 
 // Array ...
 type Array struct {
-	Query    *Query
-	ClosePos int // byte offset of the closing ']'
+	Query    *Query `json:"query,omitempty"`
+	ClosePos int    `json:"close_pos,omitempty"` // byte offset of the closing ']'
 }
 
 func (e *Array) String() string {
@@ -663,9 +669,9 @@ func (e *Array) writeTo(p *printer) {
 
 // Suffix ...
 type Suffix struct {
-	Index    *Index
-	Iter     bool
-	Optional bool
+	Index    *Index `json:"index,omitempty"`
+	Iter     bool   `json:"iter,omitempty"`
+	Optional bool   `json:"optional,omitempty"`
 }
 
 func (e *Suffix) String() string {
@@ -676,7 +682,7 @@ func (e *Suffix) String() string {
 
 func (e *Suffix) writeTo(p *printer) {
 	if e.Index != nil {
-		if e.Index.Name != "" || e.Index.Str != nil {
+		if (e.Index.Name != nil && e.Index.Name.Str != "") || e.Index.Str != nil {
 			e.Index.writeTo(p)
 		} else {
 			e.Index.writeSuffixTo(p)
@@ -707,13 +713,13 @@ func (e *Suffix) toIndices(xs []any) []any {
 
 // If ...
 type If struct {
-	Cond    *Query
-	Then    *Query
-	Elif    []*IfElif
-	Else    *Query
-	ThenPos int // byte offset of the "then" keyword
-	ElsePos int // byte offset of the "else" keyword (0 when no else clause)
-	EndPos  int // byte offset of the "end" keyword
+	Cond    *Query   `json:"cond,omitempty"`
+	Then    *Query   `json:"then,omitempty"`
+	Elif    []*IfElif `json:"elif,omitempty"`
+	Else    *Query   `json:"else,omitempty"`
+	ThenPos int      `json:"then_pos,omitempty"` // byte offset of the "then" keyword
+	ElsePos int      `json:"else_pos,omitempty"` // byte offset of the "else" keyword (0 when no else clause)
+	EndPos  int      `json:"end_pos,omitempty"`  // byte offset of the "end" keyword
 }
 
 func (e *If) String() string {
@@ -740,10 +746,10 @@ func (e *If) writeTo(p *printer) {
 
 // IfElif ...
 type IfElif struct {
-	Cond    *Query
-	Then    *Query
-	Pos     int // byte offset of the "elif" keyword
-	ThenPos int // byte offset of the "then" keyword
+	Cond    *Query `json:"cond,omitempty"`
+	Then    *Query `json:"then,omitempty"`
+	Pos     int    `json:"pos,omitempty"`      // byte offset of the "elif" keyword
+	ThenPos int    `json:"then_pos,omitempty"` // byte offset of the "then" keyword
 }
 
 func (e *IfElif) String() string {
@@ -761,9 +767,9 @@ func (e *IfElif) writeTo(p *printer) {
 
 // Try ...
 type Try struct {
-	Body     *Query
-	Catch    *Query
-	CatchPos int // byte offset of the "catch" keyword (0 when no catch clause)
+	Body     *Query `json:"body,omitempty"`
+	Catch    *Query `json:"catch,omitempty"`
+	CatchPos int    `json:"catch_pos,omitempty"` // byte offset of the "catch" keyword (0 when no catch clause)
 }
 
 func (e *Try) String() string {
@@ -783,11 +789,11 @@ func (e *Try) writeTo(p *printer) {
 
 // Reduce ...
 type Reduce struct {
-	Query    *Query
-	Pattern  *Pattern
-	Start    *Query
-	Update   *Query
-	ClosePos int // byte offset of the closing ')'
+	Query    *Query   `json:"query,omitempty"`
+	Pattern  *Pattern `json:"pattern,omitempty"`
+	Start    *Query   `json:"start,omitempty"`
+	Update   *Query   `json:"update,omitempty"`
+	ClosePos int      `json:"close_pos,omitempty"` // byte offset of the closing ')'
 }
 
 func (e *Reduce) String() string {
@@ -810,12 +816,12 @@ func (e *Reduce) writeTo(p *printer) {
 
 // Foreach ...
 type Foreach struct {
-	Query    *Query
-	Pattern  *Pattern
-	Start    *Query
-	Update   *Query
-	Extract  *Query
-	ClosePos int // byte offset of the closing ')'
+	Query    *Query   `json:"query,omitempty"`
+	Pattern  *Pattern `json:"pattern,omitempty"`
+	Start    *Query   `json:"start,omitempty"`
+	Update   *Query   `json:"update,omitempty"`
+	Extract  *Query   `json:"extract,omitempty"`
+	ClosePos int      `json:"close_pos,omitempty"` // byte offset of the closing ')'
 }
 
 func (e *Foreach) String() string {
@@ -842,8 +848,8 @@ func (e *Foreach) writeTo(p *printer) {
 
 // Label ...
 type Label struct {
-	Ident string
-	Body  *Query
+	Ident *Token `json:"ident,omitempty"`
+	Body  *Query `json:"body,omitempty"`
 }
 
 func (e *Label) String() string {
@@ -854,20 +860,20 @@ func (e *Label) String() string {
 
 func (e *Label) writeTo(p *printer) {
 	p.buf.WriteString("label ")
-	p.buf.WriteString(e.Ident)
+	p.buf.WriteString(e.Ident.Str)
 	p.buf.WriteString(" | ")
 	e.Body.writeTo(p)
 }
 
 // ConstTerm ...
 type ConstTerm struct {
-	Object *ConstObject
-	Array  *ConstArray
-	Number string
-	Str    string
-	Null   bool
-	True   bool
-	False  bool
+	Object *ConstObject `json:"object,omitempty"`
+	Array  *ConstArray  `json:"array,omitempty"`
+	Number *Token       `json:"number,omitempty"`
+	Str    *Token       `json:"str,omitempty"`
+	Null   bool         `json:"null,omitempty"`
+	True   bool         `json:"true,omitempty"`
+	False  bool         `json:"false,omitempty"`
 }
 
 func (e *ConstTerm) String() string {
@@ -881,8 +887,8 @@ func (e *ConstTerm) writeTo(p *printer) {
 		e.Object.writeTo(p)
 	} else if e.Array != nil {
 		e.Array.writeTo(p)
-	} else if e.Number != "" {
-		p.buf.WriteString(e.Number)
+	} else if e.Number != nil && e.Number.Str != "" {
+		p.buf.WriteString(e.Number.Str)
 	} else if e.Null {
 		p.buf.WriteString("null")
 	} else if e.True {
@@ -890,7 +896,11 @@ func (e *ConstTerm) writeTo(p *printer) {
 	} else if e.False {
 		p.buf.WriteString("false")
 	} else {
-		jsonEncodeString(&p.buf, e.Str)
+		if e.Str != nil {
+			jsonEncodeString(&p.buf, e.Str.Str)
+		} else {
+			jsonEncodeString(&p.buf, "")
+		}
 	}
 }
 
@@ -899,8 +909,8 @@ func (e *ConstTerm) toValue() any {
 		return e.Object.ToValue()
 	} else if e.Array != nil {
 		return e.Array.toValue()
-	} else if e.Number != "" {
-		return toNumber(e.Number)
+	} else if e.Number != nil && e.Number.Str != "" {
+		return toNumber(e.Number.Str)
 	} else if e.Null {
 		return nil
 	} else if e.True {
@@ -908,21 +918,27 @@ func (e *ConstTerm) toValue() any {
 	} else if e.False {
 		return false
 	} else {
-		return e.Str
+		if e.Str != nil {
+			return e.Str.Str
+		}
+		return ""
 	}
 }
 
 func (e *ConstTerm) toString() (string, bool) {
 	if e.Object != nil || e.Array != nil ||
-		e.Number != "" || e.Null || e.True || e.False {
+		(e.Number != nil && e.Number.Str != "") || e.Null || e.True || e.False {
 		return "", false
 	}
-	return e.Str, true
+	if e.Str != nil {
+		return e.Str.Str, true
+	}
+	return "", true
 }
 
 // ConstObject ...
 type ConstObject struct {
-	KeyVals []*ConstObjectKeyVal
+	KeyVals []*ConstObjectKeyVal `json:"key_vals,omitempty"`
 }
 
 func (e *ConstObject) String() string {
@@ -953,9 +969,12 @@ func (e *ConstObject) ToValue() map[string]any {
 	}
 	v := make(map[string]any, len(e.KeyVals))
 	for _, e := range e.KeyVals {
-		key := e.Key
-		if key == "" {
-			key = e.KeyString
+		key := ""
+		if e.Key != nil {
+			key = e.Key.Str
+		}
+		if key == "" && e.KeyString != nil {
+			key = e.KeyString.Str
 		}
 		v[key] = e.Val.toValue()
 	}
@@ -964,9 +983,9 @@ func (e *ConstObject) ToValue() map[string]any {
 
 // ConstObjectKeyVal ...
 type ConstObjectKeyVal struct {
-	Key       string
-	KeyString string
-	Val       *ConstTerm
+	Key       *Token     `json:"key,omitempty"`
+	KeyString *Token     `json:"key_string,omitempty"`
+	Val       *ConstTerm `json:"val,omitempty"`
 }
 
 func (e *ConstObjectKeyVal) String() string {
@@ -976,10 +995,14 @@ func (e *ConstObjectKeyVal) String() string {
 }
 
 func (e *ConstObjectKeyVal) writeTo(p *printer) {
-	if e.Key != "" {
-		p.buf.WriteString(e.Key)
+	if e.Key != nil && e.Key.Str != "" {
+		p.buf.WriteString(e.Key.Str)
 	} else {
-		jsonEncodeString(&p.buf, e.KeyString)
+		if e.KeyString != nil {
+			jsonEncodeString(&p.buf, e.KeyString.Str)
+		} else {
+			jsonEncodeString(&p.buf, "")
+		}
 	}
 	p.buf.WriteString(": ")
 	e.Val.writeTo(p)
@@ -987,7 +1010,7 @@ func (e *ConstObjectKeyVal) writeTo(p *printer) {
 
 // ConstArray ...
 type ConstArray struct {
-	Elems []*ConstTerm
+	Elems []*ConstTerm `json:"elems,omitempty"`
 }
 
 func (e *ConstArray) String() string {
@@ -1013,4 +1036,25 @@ func (e *ConstArray) toValue() []any {
 		v[i] = e.toValue()
 	}
 	return v
+}
+
+// CompletionSentinel is the synthetic identifier appended by ParseForCompletion
+// when it recovers from a trailing dot.
+const CompletionSentinel = "__cursor__"
+
+// ParseForCompletion parses src, recovering from a trailing "." by appending
+// CompletionSentinel so path-context analysis can locate the completion
+// position. Returns (query, true, nil) on recovery, (query, false, nil) on a
+// clean parse, or (nil, false, err) on an unrecoverable error.
+func ParseForCompletion(src string) (*Query, bool, error) {
+	if strings.HasSuffix(strings.TrimRight(src, " \t\n\r"), ".") {
+		if q2, err2 := Parse(src + CompletionSentinel); err2 == nil {
+			return q2, true, nil
+		}
+	}
+	q, err := Parse(src)
+	if err == nil {
+		return q, false, nil
+	}
+	return nil, false, err
 }

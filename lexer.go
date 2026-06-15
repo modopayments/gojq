@@ -2,23 +2,60 @@ package gojq
 
 import (
 	"encoding/json"
+	"unicode/utf16"
 	"unicode/utf8"
 )
 
+// Token carries the string value of a lexed token together with its UTF-16
+// code-unit start/stop positions (as used by the Language Server Protocol).
+type Token struct {
+	Str   string `json:"str"`
+	Start int    `json:"start"`
+	Stop  int    `json:"stop"`
+}
+
+// strToken creates a position-less Token from a plain string. Used when
+// constructing AST nodes programmatically (e.g. built-in function defs).
+func strToken(s string) *Token { return &Token{Str: s} }
+
+func buildByteToUTF16Pos(s string) []int {
+	pos := make([]int, len(s)+1)
+	bytePos, codeUnitPos := 0, 0
+	for bytePos < len(s) {
+		r, size := utf8.DecodeRuneInString(s[bytePos:])
+		for i := 0; i < size; i++ {
+			pos[bytePos+i] = codeUnitPos
+		}
+		bytePos += size
+		codeUnitPos += utf16.RuneLen(r)
+	}
+	pos[bytePos] = codeUnitPos
+	return pos
+}
+
 type lexer struct {
-	source     string
-	offset     int
-	tokenStart int // byte offset of the first character of the current token
-	result     *Query
-	comments   []Comment
-	token      string
-	tokenType  int
-	inString   bool
-	err        error
+	source         string
+	offset         int
+	tokenStart     int // byte offset of the first character of the current token
+	result         *Query
+	comments       []Comment
+	token          string
+	tokenType      int
+	inString       bool
+	err            error
+	byteToUTF16Pos []int
 }
 
 func newLexer(src string) *lexer {
-	return &lexer{source: src}
+	return &lexer{source: src, byteToUTF16Pos: buildByteToUTF16Pos(src)}
+}
+
+func (l *lexer) newToken(str string) *Token {
+	return &Token{
+		Str:   str,
+		Start: l.byteToUTF16Pos[l.tokenStart],
+		Stop:  l.byteToUTF16Pos[l.offset],
+	}
 }
 
 const eof = -1
@@ -59,7 +96,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 	if l.inString {
 		l.tokenStart = l.offset
 		tok, str := l.scanString(l.offset)
-		lval.token = str
+		lval.token = l.newToken(str)
 		return tok
 	}
 	ch, iseof := l.next()
@@ -72,7 +109,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 		i := l.offset - 1
 		j, isModule := l.scanIdentOrModule()
 		l.token = l.source[i:j]
-		lval.token = l.token
+		lval.token = l.newToken(l.token)
 		if isModule {
 			return tokModuleIdent
 		}
@@ -88,7 +125,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 			return tokInvalid
 		}
 		l.token = l.source[i:j]
-		lval.token = l.token
+		lval.token = l.newToken(l.token)
 		return tokNumber
 	}
 	switch ch {
@@ -101,7 +138,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 			return tokRecurse
 		case isIdent(ch, false):
 			l.token = l.source[l.offset-1 : l.scanIdent()]
-			lval.token = l.token[1:]
+			lval.token = l.newToken(l.token[1:])
 			return tokIndex
 		case isNumber(ch):
 			i := l.offset - 1
@@ -111,7 +148,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 				return tokInvalid
 			}
 			l.token = l.source[i:j]
-			lval.token = l.token
+			lval.token = l.newToken(l.token)
 			return tokNumber
 		default:
 			return '.'
@@ -121,7 +158,7 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 			i := l.offset - 1
 			j, isModule := l.scanIdentOrModule()
 			l.token = l.source[i:j]
-			lval.token = l.token
+			lval.token = l.newToken(l.token)
 			if isModule {
 				return tokModuleVariable
 			}
@@ -231,12 +268,12 @@ func (l *lexer) Lex(lval *yySymType) (tokenType int) {
 	case '@':
 		if isIdent(l.peek(), true) {
 			l.token = l.source[l.offset-1 : l.scanIdent()]
-			lval.token = l.token
+			lval.token = l.newToken(l.token)
 			return tokFormat
 		}
 	case '"':
 		tok, str := l.scanString(l.offset - 1)
-		lval.token = str
+		lval.token = l.newToken(str)
 		return tok
 	default:
 		if ch >= utf8.RuneSelf {

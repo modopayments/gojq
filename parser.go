@@ -25,7 +25,7 @@ func prependFuncDef(xs []*FuncDef, x *FuncDef) []*FuncDef {
 type yySymType struct {
 	yys      int
 	value    any
-	token    string
+	token    *Token
 	operator Operator
 	pos      int
 }
@@ -838,20 +838,20 @@ yydefault:
 		yyDollar = yyS[yypt-8 : yypt+1]
 //line parser.go.y:132
 		{
-			yyVAL.value = &FuncDef{Name: yyDollar[2].token, Args: yyDollar[4].value.([]string), Body: yyDollar[7].value.(*Query), Pos: yyDollar[1].pos}
+			yyVAL.value = &FuncDef{Name: yyDollar[2].token, Args: yyDollar[4].value.([]*Token), Body: yyDollar[7].value.(*Query), Pos: yyDollar[1].pos}
 			yyVAL.pos = yyDollar[1].pos
 		}
 	case 16:
 		yyDollar = yyS[yypt-1 : yypt+1]
 //line parser.go.y:139
 		{
-			yyVAL.value = []string{yyDollar[1].token}
+			yyVAL.value = []*Token{yyDollar[1].token}
 		}
 	case 17:
 		yyDollar = yyS[yypt-3 : yypt+1]
 //line parser.go.y:143
 		{
-			yyVAL.value = append(yyDollar[1].value.([]string), yyDollar[3].token)
+			yyVAL.value = append(yyDollar[1].value.([]*Token), yyDollar[3].token)
 		}
 	case 20:
 		yyDollar = yyS[yypt-2 : yypt+1]

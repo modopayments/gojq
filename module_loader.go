@@ -143,10 +143,10 @@ func parseModule(cnt, dir string) (*Query, error) {
 	for _, i := range q.Imports {
 		if i.Meta != nil {
 			for _, e := range i.Meta.KeyVals {
-				if e.Key == "search" || e.KeyString == "search" {
+				if (e.Key != nil && e.Key.Str == "search") || (e.KeyString != nil && e.KeyString.Str == "search") {
 					if path, ok := e.Val.toString(); ok {
 						if path = resolvePath(path, dir); path != "" {
-							e.Val.Str = path
+							e.Val.Str = strToken(path)
 						} else {
 							e.Val.Null = true
 						}

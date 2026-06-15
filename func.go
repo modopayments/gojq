@@ -862,7 +862,7 @@ func funcFormat(v, x any) any {
 	if f == nil {
 		return &formatNotFoundError{format}
 	}
-	return internalFuncs[f.Name].callback(v, nil)
+	return internalFuncs[f.Name.Str].callback(v, nil)
 }
 
 var htmlEscaper = strings.NewReplacer(

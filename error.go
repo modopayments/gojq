@@ -109,7 +109,7 @@ type funcNotFoundError struct {
 }
 
 func (err *funcNotFoundError) Error() string {
-	return "function not defined: " + err.f.Name + "/" + strconv.Itoa(len(err.f.Args))
+	return "function not defined: " + err.f.Name.Str + "/" + strconv.Itoa(len(err.f.Args))
 }
 
 type func0TypeError struct {

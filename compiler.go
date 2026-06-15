@@ -133,10 +133,10 @@ func (c *compiler) compile(q *Query) error {
 func (c *compiler) compileImport(i *Import) error {
 	var path, alias string
 	var err error
-	if i.ImportPath != "" {
-		path, alias = i.ImportPath, i.ImportAlias
+	if i.ImportPath != nil && i.ImportPath.Str != "" {
+		path, alias = i.ImportPath.Str, i.ImportAlias.Str
 	} else {
-		path = i.IncludePath
+		path = i.IncludePath.Str
 	}
 	if c.moduleLoader == nil {
 		return fmt.Errorf("cannot load module: %q", path)
@@ -318,8 +318,8 @@ func (c *compiler) compileFuncDef(e *FuncDef, builtin bool) error {
 	defer c.lazy(func() *code {
 		return &code{op: opjump, v: len(c.codes)}
 	})()
-	c.appendCodeInfo(e.Name)
-	scope.funcs = append(scope.funcs, &funcinfo{e.Name, len(c.codes), len(e.Args)})
+	c.appendCodeInfo(e.Name.Str)
+	scope.funcs = append(scope.funcs, &funcinfo{e.Name.Str, len(c.codes), len(e.Args)})
 	defer func(scopes []*scopeinfo, variables []string) {
 		c.scopes, c.variables = scopes, variables
 	}(c.scopes, c.variables)
@@ -342,14 +342,14 @@ func (c *compiler) compileFuncDef(e *FuncDef, builtin bool) error {
 		v := c.newVariable()
 		c.append(&code{op: opstore, v: v})
 		for _, arg := range e.Args {
-			if arg[0] == '$' {
-				c.appendCodeInfo(arg[1:])
-				w := c.createVariable(arg[1:])
+			if arg.Str[0] == '$' {
+				c.appendCodeInfo(arg.Str[1:])
+				w := c.createVariable(arg.Str[1:])
 				c.append(&code{op: opstore, v: w})
-				vis = append(vis, varIndex{arg, w})
+				vis = append(vis, varIndex{arg.Str, w})
 			} else {
-				c.appendCodeInfo(arg)
-				c.append(&code{op: opstore, v: c.createVariable(arg)})
+				c.appendCodeInfo(arg.Str)
+				c.append(&code{op: opstore, v: c.createVariable(arg.Str)})
 			}
 		}
 		for _, w := range vis {
@@ -366,7 +366,7 @@ func (c *compiler) compileFuncDef(e *FuncDef, builtin bool) error {
 	if err := c.compile(e.Body); err != nil {
 		return err
 	}
-	c.appendCodeInfo("end of " + e.Name)
+	c.appendCodeInfo("end of " + e.Name.Str)
 	return nil
 }
 
@@ -492,7 +492,7 @@ func (c *compiler) compileQueryUpdate(l, r *Query, op Operator) error {
 	case OpModify:
 		return c.compileFunc(
 			&Func{
-				Name: op.getFunc(),
+				Name: strToken(op.getFunc()),
 				Args: []*Query{l, r},
 			},
 		)
@@ -505,16 +505,16 @@ func (c *compiler) compileQueryUpdate(l, r *Query, op Operator) error {
 		c.append(&code{op: opstore, v: c.pushVariable(name)})
 		return c.compileFunc(
 			&Func{
-				Name: "_modify",
+				Name: strToken("_modify"),
 				Args: []*Query{
 					l,
 					{Term: &Term{
 						Type: TermTypeFunc,
 						Func: &Func{
-							Name: op.getFunc(),
+							Name: strToken(op.getFunc()),
 							Args: []*Query{
 								{Term: &Term{Type: TermTypeIdentity}},
-								{Term: &Term{Type: TermTypeFunc, Func: &Func{Name: name}}},
+								{Term: &Term{Type: TermTypeFunc, Func: &Func{Name: strToken(name)}}},
 							},
 						},
 					}},
@@ -571,8 +571,8 @@ func (c *compiler) compileBind(l, r *Query, patterns []*Pattern) error {
 func (c *compiler) compilePattern(vs [][2]int, p *Pattern) ([][2]int, error) {
 	var err error
 	c.appendCodeInfo(p)
-	if p.Name != "" {
-		v := c.pushVariable(p.Name)
+	if p.Name != nil && p.Name.Str != "" {
+		v := c.pushVariable(p.Name.Str)
 		c.append(&code{op: opstore, v: v})
 		return append(vs, v), nil
 	} else if len(p.Array) > 0 {
@@ -592,12 +592,16 @@ func (c *compiler) compilePattern(vs [][2]int, p *Pattern) ([][2]int, error) {
 		for _, kv := range p.Object {
 			var key, name string
 			c.append(&code{op: opload, v: v})
-			if key = kv.Key; key != "" {
+			if kv.Key != nil && kv.Key.Str != "" {
+				key = kv.Key.Str
 				if key[0] == '$' {
 					key, name = key[1:], key
 				}
 			} else if kv.KeyString != nil {
-				if key = kv.KeyString.Str; key == "" {
+				if kv.KeyString.Str != nil {
+					key = kv.KeyString.Str.Str
+				}
+				if key == "" {
 					if err := c.compileString(kv.KeyString, nil); err != nil {
 						return nil, err
 					}
@@ -619,7 +623,7 @@ func (c *compiler) compilePattern(vs [][2]int, p *Pattern) ([][2]int, error) {
 				if kv.Val != nil {
 					c.append(&code{op: opdup})
 				}
-				if vs, err = c.compilePattern(vs, &Pattern{Name: name}); err != nil {
+				if vs, err = c.compilePattern(vs, &Pattern{Name: strToken(name)}); err != nil {
 					return nil, err
 				}
 			}
@@ -776,7 +780,7 @@ func (c *compiler) compileForeach(e *Foreach) error {
 
 func (c *compiler) compileLabel(e *Label) error {
 	c.appendCodeInfo(e)
-	v := c.pushVariable("$%" + e.Ident[1:])
+	v := c.pushVariable("$%" + e.Ident.Str[1:])
 	c.append(&code{op: opforklabel, v: v})
 	return c.compileQuery(e.Body)
 }
@@ -809,7 +813,7 @@ func (c *compiler) compileTerm(e *Term) error {
 	case TermTypeIdentity:
 		return nil
 	case TermTypeRecurse:
-		return c.compileFunc(&Func{Name: "recurse"})
+		return c.compileFunc(&Func{Name: strToken("recurse")})
 	case TermTypeNull:
 		c.append(&code{op: opconst, v: nil})
 		return nil
@@ -828,12 +832,12 @@ func (c *compiler) compileTerm(e *Term) error {
 	case TermTypeArray:
 		return c.compileArray(e.Array)
 	case TermTypeNumber:
-		c.append(&code{op: opconst, v: toNumber(e.Number)})
+		c.append(&code{op: opconst, v: toNumber(e.Number.Str)})
 		return nil
 	case TermTypeUnary:
 		return c.compileUnary(e.Unary)
 	case TermTypeFormat:
-		return c.compileFormat(e.Format, e.Str)
+		return c.compileFormat(e.Format.Str, e.Str)
 	case TermTypeString:
 		return c.compileString(e.Str, nil)
 	case TermTypeIf:
@@ -847,7 +851,7 @@ func (c *compiler) compileTerm(e *Term) error {
 	case TermTypeLabel:
 		return c.compileLabel(e.Label)
 	case TermTypeBreak:
-		return c.compileBreak(e.Break)
+		return c.compileBreak(e.Break.Str)
 	case TermTypeQuery:
 		defer c.newScopeDepth()()
 		return c.compileQuery(e.Query)
@@ -883,10 +887,10 @@ func (c *compiler) compileIndex(e *Term, x *Index) error {
 
 func (c *compiler) compileFunc(e *Func) error {
 	if len(e.Args) == 0 {
-		if f, v := c.lookupFuncOrVariable(e.Name); f != nil {
+		if f, v := c.lookupFuncOrVariable(e.Name.Str); f != nil {
 			return c.compileCallPc(f, e.Args)
 		} else if v != nil {
-			if e.Name[0] == '$' {
+			if e.Name.Str[0] == '$' {
 				c.append(&code{op: oppop})
 				c.append(&code{op: opload, v: v.index})
 			} else {
@@ -894,7 +898,7 @@ func (c *compiler) compileFunc(e *Func) error {
 				c.append(&code{op: opcallpc})
 			}
 			return nil
-		} else if e.Name == "$ENV" || e.Name == "env" {
+		} else if e.Name.Str == "$ENV" || e.Name.Str == "env" {
 			env := make(map[string]any)
 			if c.environLoader != nil {
 				for _, kv := range c.environLoader() {
@@ -905,23 +909,23 @@ func (c *compiler) compileFunc(e *Func) error {
 			}
 			c.append(&code{op: opconst, v: env})
 			return nil
-		} else if e.Name[0] == '$' {
-			return &variableNotFoundError{e.Name}
+		} else if e.Name.Str[0] == '$' {
+			return &variableNotFoundError{e.Name.Str}
 		}
 	} else {
 		for i := len(c.scopes) - 1; i >= 0; i-- {
 			s := c.scopes[i]
 			for j := len(s.funcs) - 1; j >= 0; j-- {
-				if f := s.funcs[j]; f.name == e.Name && f.argcnt == len(e.Args) {
+				if f := s.funcs[j]; f.name == e.Name.Str && f.argcnt == len(e.Args) {
 					return c.compileCallPc(f, e.Args)
 				}
 			}
 		}
 	}
-	if f := c.lookupBuiltin(e.Name, len(e.Args)); f != nil {
+	if f := c.lookupBuiltin(e.Name.Str, len(e.Args)); f != nil {
 		return c.compileCallPc(f, e.Args)
 	}
-	if fds, ok := builtinFuncDefs[e.Name]; ok {
+	if fds, ok := builtinFuncDefs[e.Name.Str]; ok {
 		var compiled bool
 		for _, fd := range fds {
 			if len(fd.Args) == len(e.Args) {
@@ -933,7 +937,7 @@ func (c *compiler) compileFunc(e *Func) error {
 			}
 		}
 		if !compiled {
-			switch e.Name {
+			switch e.Name.Str {
 			case "_assign":
 				c.compileAssign()
 			case "_modify":
@@ -942,25 +946,25 @@ func (c *compiler) compileFunc(e *Func) error {
 				c.compileLast()
 			}
 		}
-		if f := c.lookupBuiltin(e.Name, len(e.Args)); f != nil {
+		if f := c.lookupBuiltin(e.Name.Str, len(e.Args)); f != nil {
 			return c.compileCallPc(f, e.Args)
 		}
 	}
-	if fn, ok := internalFuncs[e.Name]; ok && fn.accept(len(e.Args)) {
-		switch e.Name {
+	if fn, ok := internalFuncs[e.Name.Str]; ok && fn.accept(len(e.Args)) {
+		switch e.Name.Str {
 		case "empty":
 			c.append(&code{op: opbacktrack})
 			return nil
 		case "path":
 			c.append(&code{op: oppathbegin})
-			if err := c.compileCall(e.Name, e.Args); err != nil {
+			if err := c.compileCall(e.Name.Str, e.Args); err != nil {
 				return err
 			}
 			c.codes[len(c.codes)-1] = &code{op: oppathend}
 			return nil
 		case "builtins":
 			return c.compileCallInternal(
-				[3]any{c.funcBuiltins, 0, e.Name},
+				[3]any{c.funcBuiltins, 0, e.Name.Str},
 				e.Args,
 				true,
 				-1,
@@ -970,14 +974,14 @@ func (c *compiler) compileFunc(e *Func) error {
 				return &inputNotAllowedError{}
 			}
 			return c.compileCallInternal(
-				[3]any{c.funcInput, 0, e.Name},
+				[3]any{c.funcInput, 0, e.Name.Str},
 				e.Args,
 				true,
 				-1,
 			)
 		case "modulemeta":
 			return c.compileCallInternal(
-				[3]any{c.funcModulemeta, 0, e.Name},
+				[3]any{c.funcModulemeta, 0, e.Name.Str},
 				e.Args,
 				true,
 				-1,
@@ -989,7 +993,7 @@ func (c *compiler) compileFunc(e *Func) error {
 			if err := c.compileQuery(e.Args[0]); err != nil {
 				return err
 			}
-			if err := c.compileFunc(&Func{Name: "debug"}); err != nil {
+			if err := c.compileFunc(&Func{Name: strToken("debug")}); err != nil {
 				if _, ok := err.(*funcNotFoundError); ok {
 					err = &funcNotFoundError{e}
 				}
@@ -1000,18 +1004,18 @@ func (c *compiler) compileFunc(e *Func) error {
 			return nil
 		case "_match":
 			return c.compileCallInternal(
-				[3]any{c.funcMatch, len(e.Args), e.Name},
+				[3]any{c.funcMatch, len(e.Args), e.Name.Str},
 				e.Args,
 				true,
 				-1,
 			)
 		default:
-			return c.compileCall(e.Name, e.Args)
+			return c.compileCall(e.Name.Str, e.Args)
 		}
 	}
-	if fn, ok := c.customFuncs[e.Name]; ok && fn.accept(len(e.Args)) {
+	if fn, ok := c.customFuncs[e.Name.Str]; ok && fn.accept(len(e.Args)) {
 		if err := c.compileCallInternal(
-			[3]any{fn.callback, len(e.Args), e.Name},
+			[3]any{fn.callback, len(e.Args), e.Name.Str},
 			e.Args,
 			true,
 			-1,
@@ -1171,8 +1175,8 @@ func (c *compiler) funcBuiltins(any, []any) any {
 	var xs []*funcNameArity
 	for _, fds := range builtinFuncDefs {
 		for _, fd := range fds {
-			if fd.Name[0] != '_' {
-				xs = append(xs, &funcNameArity{fd.Name, len(fd.Args)})
+			if fd.Name.Str[0] != '_' {
+				xs = append(xs, &funcNameArity{fd.Name.Str, len(fd.Args)})
 			}
 		}
 	}
@@ -1252,8 +1256,8 @@ func listModuleDefs(q *Query) []any {
 	}
 	var xs []*funcNameArity
 	for _, fd := range q.FuncDefs {
-		if fd.Name[0] != '_' {
-			xs = append(xs, &funcNameArity{fd.Name, len(fd.Args)})
+		if fd.Name.Str[0] != '_' {
+			xs = append(xs, &funcNameArity{fd.Name.Str, len(fd.Args)})
 		}
 	}
 	sort.Slice(xs, func(i, j int) bool {
@@ -1274,15 +1278,21 @@ func listModuleDeps(q *Query) []any {
 		if v == nil {
 			v = make(map[string]any)
 		}
-		relpath := i.ImportPath
-		if relpath == "" {
-			relpath = i.IncludePath
+		var relpath string
+		if i.ImportPath != nil && i.ImportPath.Str != "" {
+			relpath = i.ImportPath.Str
+		} else if i.IncludePath != nil {
+			relpath = i.IncludePath.Str
 		}
 		v["relpath"] = relpath
-		if i.ImportAlias != "" {
-			v["as"] = strings.TrimPrefix(i.ImportAlias, "$")
+		importAlias := ""
+		if i.ImportAlias != nil {
+			importAlias = i.ImportAlias.Str
 		}
-		v["is_data"] = strings.HasPrefix(i.ImportAlias, "$")
+		if importAlias != "" {
+			v["as"] = strings.TrimPrefix(importAlias, "$")
+		}
+		v["is_data"] = strings.HasPrefix(importAlias, "$")
 		deps[j] = v
 	}
 	return deps
@@ -1330,13 +1340,14 @@ func (c *compiler) compileObject(e *Object) error {
 }
 
 func (c *compiler) compileObjectKeyVal(v [2]int, kv *ObjectKeyVal) error {
-	if key := kv.Key; key != "" {
+	if kv.Key != nil && kv.Key.Str != "" {
+		key := kv.Key.Str
 		if key[0] == '$' {
 			if kv.Val == nil { // {$foo} == {foo:$foo}
 				c.append(&code{op: oppush, v: key[1:]})
 			}
 			c.append(&code{op: opload, v: v})
-			if err := c.compileFunc(&Func{Name: key}); err != nil {
+			if err := c.compileFunc(&Func{Name: strToken(key)}); err != nil {
 				return err
 			}
 		} else {
@@ -1346,14 +1357,19 @@ func (c *compiler) compileObjectKeyVal(v [2]int, kv *ObjectKeyVal) error {
 				c.append(&code{op: opindex, v: key})
 			}
 		}
-	} else if key := kv.KeyString; key != nil {
-		if key.Queries == nil {
-			c.append(&code{op: oppush, v: key.Str})
+	} else if keyStr := kv.KeyString; keyStr != nil {
+		if keyStr.Queries == nil {
+			var strVal string
+			if keyStr.Str != nil {
+				strVal = keyStr.Str.Str
+			}
+			c.append(&code{op: oppush, v: strVal})
 			if kv.Val == nil { // {"foo"} == {"foo":.["foo"]}
 				c.append(&code{op: opload, v: v})
-				c.append(&code{op: opindex, v: key.Str})
+				c.append(&code{op: opindex, v: strVal})
 			}
 		} else {
+			key := keyStr
 			c.append(&code{op: opload, v: v})
 			if err := c.compileString(key, nil); err != nil {
 				return err
@@ -1452,8 +1468,8 @@ func (c *compiler) compileFormat(format string, str *String) error {
 	f := formatToFunc(format)
 	if f == nil {
 		f = &Func{
-			Name: "format",
-			Args: []*Query{{Term: &Term{Type: TermTypeString, Str: &String{Str: format[1:]}}}},
+			Name: strToken("format"),
+			Args: []*Query{{Term: &Term{Type: TermTypeString, Str: &String{Str: strToken(format[1:])}}}},
 		}
 	}
 	if str == nil {
@@ -1465,25 +1481,25 @@ func (c *compiler) compileFormat(format string, str *String) error {
 func formatToFunc(format string) *Func {
 	switch format {
 	case "@text":
-		return &Func{Name: "tostring"}
+		return &Func{Name: strToken("tostring")}
 	case "@json":
-		return &Func{Name: "tojson"}
+		return &Func{Name: strToken("tojson")}
 	case "@html":
-		return &Func{Name: "_tohtml"}
+		return &Func{Name: strToken("_tohtml")}
 	case "@uri":
-		return &Func{Name: "_touri"}
+		return &Func{Name: strToken("_touri")}
 	case "@urid":
-		return &Func{Name: "_tourid"}
+		return &Func{Name: strToken("_tourid")}
 	case "@csv":
-		return &Func{Name: "_tocsv"}
+		return &Func{Name: strToken("_tocsv")}
 	case "@tsv":
-		return &Func{Name: "_totsv"}
+		return &Func{Name: strToken("_totsv")}
 	case "@sh":
-		return &Func{Name: "_tosh"}
+		return &Func{Name: strToken("_tosh")}
 	case "@base64":
-		return &Func{Name: "_tobase64"}
+		return &Func{Name: strToken("_tobase64")}
 	case "@base64d":
-		return &Func{Name: "_tobase64d"}
+		return &Func{Name: strToken("_tobase64d")}
 	default:
 		return nil
 	}
@@ -1491,11 +1507,15 @@ func formatToFunc(format string) *Func {
 
 func (c *compiler) compileString(s *String, f *Func) error {
 	if s.Queries == nil {
-		c.append(&code{op: opconst, v: s.Str})
+		var strVal string
+		if s.Str != nil {
+			strVal = s.Str.Str
+		}
+		c.append(&code{op: opconst, v: strVal})
 		return nil
 	}
 	if f == nil {
-		f = &Func{Name: "tostring"}
+		f = &Func{Name: strToken("tostring")}
 	}
 	var q *Query
 	for _, e := range s.Queries {
@@ -1581,7 +1601,7 @@ func (c *compiler) compileCallInternal(
 	for i := len(args) - 1; i >= 0; i-- {
 		pc := len(c.codes) + 1 // skip opjump (ref: compileFuncDef)
 		name := "lambda:" + strconv.Itoa(pc)
-		if err := c.compileFuncDef(&FuncDef{Name: name, Body: args[i]}, false); err != nil {
+		if err := c.compileFuncDef(&FuncDef{Name: strToken(name), Body: args[i]}, false); err != nil {
 			return err
 		}
 		if internal {
