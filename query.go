@@ -1047,8 +1047,15 @@ const CompletionSentinel = "__cursor__"
 // position. Returns (query, true, nil) on recovery, (query, false, nil) on a
 // clean parse, or (nil, false, err) on an unrecoverable error.
 func ParseForCompletion(src string) (*Query, bool, error) {
-	if strings.HasSuffix(strings.TrimRight(src, " \t\n\r"), ".") {
-		if q2, err2 := Parse(src + CompletionSentinel); err2 == nil {
+	trimmed := strings.TrimRight(src, " \t\n\r")
+	if strings.HasSuffix(trimmed, ".") {
+		// Insert the sentinel immediately after the dot, before any trailing
+		// whitespace. This keeps the sentinel's byte offset aligned with the
+		// editor cursor position (which is always placed right after the dot,
+		// not after any trailing newline).
+		dotEnd := len(trimmed)
+		modified := src[:dotEnd] + CompletionSentinel + src[dotEnd:]
+		if q2, err2 := Parse(modified); err2 == nil {
 			return q2, true, nil
 		}
 	}
