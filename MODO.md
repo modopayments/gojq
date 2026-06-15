@@ -9,84 +9,43 @@ Branch: `feat/composition-lsp` (7 commits ahead of upstream)
 
 ## Changes from upstream
 
-### `Token` type with UTF-16 positions (`lexer.go`)
+### UTF-16 positions on all AST tokens
 
-A new `Token` struct carries the source text and its UTF-16 code-unit offsets:
+Every token in the AST carries its UTF-16 code-unit start and stop offsets (required by the LSP protocol). A lookup table is built upfront at lex time so each token read is O(1). All AST string fields were converted to typed token values; consumer code reads `.Str` to get the string.
 
-```go
-type Token struct {
-    Str   string `json:"str"`
-    Start int    `json:"start"` // flat UTF-16 code-unit offset of first character
-    Stop  int    `json:"stop"`  // flat UTF-16 code-unit offset past last character
-}
-```
+### Structural positions on AST nodes
 
-`Start`/`Stop` are flat offsets into the UTF-16 encoding of the full source string (not line/column pairs). A `buildByteToUTF16Pos(s string) []int` lookup table is built upfront at lex time (O(n)); each token read is O(1).
-
-All AST string fields were converted from `string` to `*Token`. Affected fields include: `FuncDef.Name`, `FuncDef.Args`, `Import.ImportPath`/`Alias`/`IncludePath`, `Term.Number`/`Format`/`Break`, `Index.Name`, `Pattern.Name`, `PatternObject.Key`, `Func.Name`, `ObjectKeyVal.Key`, `String.Str`, `ConstTerm.Number`/`Str`, `ConstObjectKeyVal.Key`/`KeyString`. Consumer code dereferences `.Str` to get the string value.
-
-### Structural position fields on AST nodes
-
-Additional byte-offset position fields on non-leaf AST nodes for tracking structural tokens:
-
-| Node | Field(s) | Meaning |
-|---|---|---|
-| `Query` | `Pos`, `OpPos` | First token; binary operator (`\|`, `,`, `//`, etc.) |
-| `FuncDef` | `Pos` | `def` keyword |
-| `Term` | `Pos`, `ClosePos` | First token; closing `)` for parenthesized terms |
-| `Object` | `ClosePos` | `}` |
-| `Array` | `ClosePos` | `]` |
-| `Reduce` | `ClosePos` | `)` |
-| `Foreach` | `ClosePos` | `)` |
-| `ObjectKeyVal` | `Pos` | Key or `(` for computed keys |
-| `If` | `ThenPos`, `ElsePos`, `EndPos` | Those keywords |
-| `IfElif` | `Pos`, `ThenPos` | Those keywords |
-| `Try` | `CatchPos` | `catch` keyword (`0` if absent) |
+Additional position fields track structural tokens (keywords, closing brackets, operators) on non-leaf AST nodes — `Query`, `FuncDef`, `Term`, `Object`, `Array`, `Reduce`, `Foreach`, `ObjectKeyVal`, `If`, `IfElif`, and `Try`.
 
 ### Comment tracking
 
-```go
-type Comment struct {
-    Text   string // full text including leading #, no trailing newline
-    Pos    int    // byte offset of #
-    Col    int    // bytes from last newline to #
-    Inline bool   // true when non-whitespace precedes # on same line
-}
-```
-
-`Query.Comments []Comment` is populated on the root `Query` only (all comments in source order). The `printer` type's `flush(beforePos int)` emits buffered comments before each AST node, enabling round-trip formatting with comments preserved.
+Comments are attached to the root AST node in source order and preserved through the parse tree. The printer emits buffered comments before each AST node, enabling formatters to round-trip jq source with comments intact.
 
 **Known caveat:** A comment on its own line before a pipe (`.foo\n# mid\n| .bar`) is re-emitted inline after the LHS. This is documented as expected behavior.
 
-**Behavioral change from upstream:** Upstream `skipComment()` supported `\`-continuation (backslash at end of line to continue a comment). Modo's `scanComment()` dropped this; the corresponding test cases were removed.
+**Behavioral change from upstream:** Upstream supported `\`-continuation on comments (backslash at end of line). This was removed.
 
 ### `ParseForCompletion` — trailing-dot completion
 
-```go
-const CompletionSentinel = "__cursor__"
+Trims trailing whitespace from the source; if the trimmed string ends with `.`, injects a `__cursor__` sentinel immediately after the dot and parses. This allows jq-lsp to request completions inside incomplete dot expressions without requiring syntactically complete input.
 
-func ParseForCompletion(src string) (*Query, bool, error)
-```
-
-Trims trailing whitespace from `src`. If the trimmed string ends with `.`, inserts `__cursor__` immediately after the dot (making it a field access like `.foo.__cursor__`) and calls `Parse` on the result. Returns `(query, true, nil)` when the sentinel was injected, `(query, false, nil)` on a clean parse, `(nil, false, err)` on failure.
-
-**Important limitation:** This only handles the trailing-dot case — it is not a general cursor-offset injection API. `jq-lsp` uses it exclusively for dot-triggered completions.
+**Important limitation:** This only handles the trailing-dot case — it is not a general cursor-offset injection API.
 
 ### JSON-serializable AST
 
-`TermType` and `Operator` gain `MarshalJSON`/`UnmarshalJSON`/`GoString` methods and `FromString` constructors (`TermTypeFromString`, `OperatorFromString`), enabling full AST JSON serialization for use by jq-lsp over stdio.
+`TermType` and `Operator` gain JSON marshaling and `FromString` constructors, enabling full AST JSON serialization for use by jq-lsp over stdio.
 
 ---
 
 ## Why a fork
 
-Upstream `gojq` exposes byte-offset positions only on root `*gojq.Query` nodes and has no UTF-16 position support or completion-mode parsing. The changes are too invasive and LSP-specific to upstream.
+Upstream `gojq` exposes byte-offset positions only on root query nodes and has no UTF-16 position support or completion-mode parsing. The changes are too invasive and LSP-specific to upstream.
 
 ---
 
 ## Known issues
 
-- **`parser.go.y` is stale.** The yacc grammar source still uses `[]string` type assertions for `funcargs`, but the generated `parser.go` correctly uses `[]*Token`. Re-running `goyacc` from the `.y` source would regress the Token work; `parser.go.y` must be updated manually before any future yacc regeneration.
+- **`parser.go.y` is stale.** The yacc grammar source has not been updated to match the generated `parser.go`; re-running `goyacc` from it would regress the Token work.
 - **Line-continuation comments silently dropped.** Upstream's `\`-continuation support was removed without replacement.
 - **No tests for `ParseForCompletion`** or for UTF-16 position correctness on non-ASCII (multi-byte) input.
 
