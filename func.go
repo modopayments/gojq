@@ -208,6 +208,8 @@ func init() {
 		"error":          {argcount0 | argcount1, false, funcError},
 		"halt":           argFunc0(funcHalt),
 		"halt_error":     {argcount0 | argcount1, false, funcHaltError},
+
+		"fromdateiso8601": argFunc0(funcFromdateiso8601),
 	}
 }
 
@@ -1982,6 +1984,34 @@ func funcStrptime(v, x any) any {
 		return &func1TypeError{"strptime", v, x}
 	}
 	return epochToArray(timeToEpoch(t), time.UTC)
+}
+
+// time.Parse accepts a fractional second (. or ,) after the seconds field
+// even though neither layout has one; strptime's %f stops at 6 digits.
+// The second layout keeps +hhmm offsets, which strptime's %z accepted.
+var iso8601Layouts = []string{time.RFC3339, "2006-01-02T15:04:05Z0700"}
+
+func funcFromdateiso8601(v any) any {
+	s, ok := v.(string)
+	if !ok {
+		return &func0TypeError{"fromdateiso8601", v}
+	}
+	var t time.Time
+	var err error
+	for _, layout := range iso8601Layouts {
+		if t, err = time.Parse(layout, s); err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return &func0WrapError{"fromdateiso8601", v, err}
+	}
+	// Go's zero time is how an unset time.Time serializes; callers rely on it
+	// failing to parse, as it did through strptime.
+	if t.IsZero() {
+		return &func0TypeError{"fromdateiso8601", v}
+	}
+	return timeToEpoch(t)
 }
 
 func arrayToTime(a []any, loc *time.Location) (time.Time, error) {

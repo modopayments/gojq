@@ -127,7 +127,6 @@ def paths(f): path(.. | select(f)) | select(. != []);
 def pick(f): . as $v |
   reduce path(f) as $p (null; setpath($p; $v | getpath($p)));
 
-def fromdateiso8601: strptime("%Y-%m-%dT%H:%M:%S%z") | mktime;
 def todateiso8601: strftime("%Y-%m-%dT%H:%M:%SZ");
 def fromdate: fromdateiso8601;
 def todate: todateiso8601;

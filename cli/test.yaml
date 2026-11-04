@@ -5599,6 +5599,25 @@
     [2020,8,13,12,26,40,0,256]
     1600000000
 
+- name: fromdate function with fractional seconds
+  args:
+    - -c
+    - 'try fromdate catch "error"'
+  input: |
+    "2017-07-14T02:40:00.5Z"
+    "2017-07-14T02:40:00,25Z"
+    "2019-09-08T06:02:03.123456789+09:00"
+    "2017-07-14T02:40:00.Z"
+    "0001-01-01T00:00:00Z"
+    "0001-01-01T00:00:00.000Z"
+  expected: |
+    1500000000.5
+    1500000000.25
+    1567890123.1234567
+    "error"
+    "error"
+    "error"
+
 - name: strftime, strptime functions
   args:
     - 'strptime("%c") | strftime("%c")'
