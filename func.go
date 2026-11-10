@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -2087,7 +2088,38 @@ func funcMatch(v, re, fs, testing any) any {
 	return res
 }
 
+// Compiled patterns by pattern and flags: compiling costs more than matching. Bounded, since patterns can come from data
+var regexpCache = struct {
+	sync.RWMutex
+	m map[regexpCacheKey]*regexp.Regexp
+}{m: make(map[regexpCacheKey]*regexp.Regexp)}
+
+type regexpCacheKey struct{ re, flags string }
+
+const regexpCacheMax = 1024
+
 func compileRegexp(re, flags string) (*regexp.Regexp, error) {
+	key := regexpCacheKey{re, flags}
+	regexpCache.RLock()
+	r, ok := regexpCache.m[key]
+	regexpCache.RUnlock()
+	if ok {
+		return r, nil
+	}
+	r, err := compileRegexpUncached(re, flags)
+	if err != nil {
+		return nil, err
+	}
+	regexpCache.Lock()
+	if len(regexpCache.m) >= regexpCacheMax {
+		clear(regexpCache.m)
+	}
+	regexpCache.m[key] = r
+	regexpCache.Unlock()
+	return r, nil
+}
+
+func compileRegexpUncached(re, flags string) (*regexp.Regexp, error) {
 	if strings.IndexFunc(flags, func(r rune) bool {
 		return r != 'g' && r != 'i' && r != 'm'
 	}) >= 0 {
